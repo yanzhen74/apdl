@@ -1,0 +1,40 @@
+# 编译产物
+target/
+**/target/
+
+# IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.temp
+/tmp/
+
+# 编译缓存
+**/deps/
+**/examples/
+**/build/
+
+# 文档生成
+**/docs/_build/
+**/site/
+
+# 用户配置
+config.local
+
+# Cargo.lock (对于库项目保留，对于工作空间可能需要忽略)
+Cargo.lock
+
+# 平台特定的临时文件
+Thumbs.db
+ehthumbs.db
+Icon?
+*~
