@@ -1,0 +1,83 @@
+// CCSDS协议综合语义规则定义
+// 符合CCSDS 132.0-B-3, 133.0-B-1, 232.0-B-3 标准
+
+// ==================== 传输帧层 (Transfer Frame Level) ====================
+
+// 同步标志字段
+field: sync_flag; type: Uint16; length: 2byte; scope: layer(physical); cover: entire_field; constraint: fixed(0xEB90); desc: "同步标志";
+
+// 传输帧版本号
+field: tfvn; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "传输帧版本号";
+
+// 虚拟信道ID
+field: vcid; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=63); desc: "虚拟信道ID";
+
+// 操作控制字段
+field: ocff; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "操作控制字段";
+
+// 帧长度字段
+field: frame_len; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; desc: "帧长度(减1)";
+
+// 数据字段
+field: data_field; type: RawData; length: dynamic; scope: layer(application); cover: entire_field; desc: "数据域";
+
+// 帧错误控制字段
+field: fecf; type: Uint16; length: 2byte; scope: layer(data_link); cover: entire_field; alg: crc16; desc: "帧错误控制字段";
+
+// ==================== 包层 (Packet Level) ====================
+
+// 包版本号
+field: pvn; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=1); desc: "包版本号";
+
+// 包类型
+field: ptype; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=1); desc: "包类型(0-遥测,1-遥控)";
+
+// 段长度标志
+field: sec_hdr_flg; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=3); desc: "段长度标志";
+
+// 应用进程ID (APID)
+field: apid; type: Uint16; length: 2byte; scope: layer(network); cover: entire_field; constraint: range(0..=2047); desc: "应用进程ID";
+
+// 序列标志
+field: seg_flgs; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=3); desc: "序列标志";
+
+// 序列计数器
+field: pkt_seq_cnt; type: Uint16; length: 2byte; scope: layer(network); cover: entire_field; desc: "包序列计数器";
+
+// 包长度
+field: pkt_len; type: Uint16; length: 2byte; scope: layer(network); cover: entire_field; desc: "包长度(减7)";
+
+// 包数据字段
+field: pkt_data; type: RawData; length: dynamic; scope: layer(application); cover: entire_field; desc: "包数据域";
+
+// ==================== 语义规则定义 ====================
+
+// 1. 路由分发规则 - 根据虚拟信道&APID进行分路
+rule: routing_dispatch(field: vcid, apid; algorithm: hash_vcid_apid_to_route; desc: "根据虚拟信道和APID进行分路");
+
+// 2. 序列控制规则 - 根据APID设置包计数
+rule: sequence_control(field: pkt_seq_cnt; trigger: on_apid_change; algorithm: auto_increment_per_apid; desc: "根据APID自动递增序列计数");
+
+// 3. 校验规则 - 根据CRC对帧进行校验
+rule: validation(field: fecf; algorithm: crc16_verification; range: from(sync_flag) to(data_field); desc: "对指定范围进行CRC16校验");
+
+// 4. 同步规则 - 根据同步标志进行同步
+rule: synchronization(field: sync_flag; algorithm: sync_pattern_match; desc: "根据同步标志进行帧同步");
+
+// 5. 长度验证规则 - 验证帧长度字段
+rule: length_validation(field: frame_len; condition: equals_remaining_bytes; desc: "验证帧长度字段与剩余字节数相等");
+
+// 6. 状态机规则 - 控制协议状态转换
+rule: state_machine(condition: on_sync_detected; algorithm: transition_to_data_mode; desc: "检测到同步标志后进入数据接收模式");
+
+// 7. 长度规则 - 帧长度字段等于后续字节数
+rule: length_calculation(field: frame_len; expression: '(total_length - 5)'; desc: "帧长度等于总长度减去头部(同步标志2+版本1+VCID1+OCFF1)");
+
+// 8. 流量控制规则 - 根据接收能力调节发送速率
+rule: flow_control(field: vcid; algorithm: rate_limit_by_channel; desc: "根据虚拟信道进行流量控制");
+
+// 9. 安全规则 - 对敏感数据进行保护
+rule: security(field: pkt_data; algorithm: encrypt_if_sensitive; desc: "对敏感数据包进行加密");
+
+// 10. 冗余规则 - 提供备份路径
+rule: redundancy(field: sync_flag; algorithm: dual_path_check; desc: "通过双路径验证同步标志");

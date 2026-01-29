@@ -1,0 +1,19 @@
+# CCSDS 协议规范
+
+## 协议信息
+- ID: {{id}}
+- 名称: {{name}}
+- 版本: {{version}}
+- 标准: {{standard}}
+
+## 协议层结构
+{{layer_structure}}
+
+## 字段定义
+{{field_definitions}}
+
+## 约束条件
+{{constraints}}
+
+## 附录
+{{appendix}}

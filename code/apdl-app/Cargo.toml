@@ -1,0 +1,19 @@
+[package]
+name = "apdl-app"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "apdl"
+path = "src/main.rs"
+
+[dependencies]
+apdl-core = { path = "../apdl-core" }
+apdl-poem = { path = "../apdl-poem" }
+apdl-dpe = { path = "../apdl-dpe" }
+apdl-sak = { path = "../apdl-sak" }
+apdl-lsk = { path = "../apdl-lsk" }
+apdl-pvpae = { path = "../apdl-pvpae" }
+apdl-iam = { path = "../apdl-iam" }
+clap = { version = "4.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["full"] }

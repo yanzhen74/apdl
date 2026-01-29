@@ -1,0 +1,18 @@
+// CCSDS TM (Telemetry) Transfer Frame 标准协议定义
+// 符合 CCSDS 132.0-B-3 标准
+
+// 同步标志字段 - 固定值0xEB90
+field: tm_sync_flag; type: Uint16; length: 2byte; scope: layer(physical); cover: entire_field; constraint: fixed(0xEB90); desc: "CCSDS TM同步标志";
+
+// 主帧头 - 包含版本、航天器ID等信息
+field: tfvn; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=7); desc: "传输帧版本号";
+field: scid_high; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=255); desc: "航天器ID高位";
+field: vcid; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=63); desc: "虚拟通道ID";
+field: ocff; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "操作控制字段标志";
+field: frame_len; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=255); desc: "帧长度(减1)";
+
+// 数据字段 - 可变长度的数据域
+field: tm_data_field; type: RawData; length: dynamic; scope: layer(application); cover: entire_field; desc: "TM数据域";
+
+// 帧尾 - 可能包含错误检测码
+field: tm_fecf; type: Uint16; length: 2byte; scope: layer(data_link); cover: entire_field; desc: "帧错误控制字段";

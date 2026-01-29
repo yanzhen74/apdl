@@ -1,0 +1,44 @@
+// CCSDS TC (Telecommand) Transfer Frame 标准协议定义
+// 符合 CCSDS 232.0-B-3 标准
+
+// 同步标志字段 - 固定值0x55AA
+field: tc_sync_flag; type: Uint16; length: 2byte; scope: layer(physical); cover: entire_field; constraint: fixed(0x55AA); desc: "CCSDS TC同步标志";
+
+// 传输帧头 - 包含版本、类型、段等信息
+field: tc_tfvn; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=3); desc: "传输帧版本号";
+field: tc_bypass; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "旁路标志";
+field: tc_cc; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "控制命令标志";
+field: tc_seg; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=3); desc: "分段标志";
+field: tc_vcid; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=15); desc: "虚拟通道ID";
+field: tc_fcfl; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "帧控制字段长度标志";
+
+// 传输帧数据 - 包含段头和数据
+field: tc_seq; type: Uint16; length: 2byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=65535); desc: "帧序列号";
+field: tc_data; type: RawData; length: dynamic; scope: layer(application); cover: entire_field; desc: "TC数据域";
+
+// 传输帧尾 - 错误检测码
+field: tc_fecf; type: Uint16; length: 2byte; scope: layer(data_link); cover: entire_field; desc: "帧错误控制字段";
+
+// 首导头指针 - 指向数据区的指针
+field: tc_header_ptr; type: Uint16; length: 2byte; scope: layer(data_link); cover: entire_field; desc: "指向TC数据区的首导头指针";
+
+// 语义规则：CRC校验范围从同步标志到数据字段结束
+rule: crc_range(tc_sync_flag to tc_data);
+
+// 语义规则：首导头指针指向数据字段
+rule: pointer(tc_header_ptr points_to tc_data);
+
+// 语义规则：字段顺序定义
+rule: order(tc_sync_flag before tc_tfvn);
+rule: order(tc_tfvn before tc_bypass);
+rule: order(tc_bypass before tc_cc);
+rule: order(tc_cc before tc_seg);
+rule: order(tc_seg before tc_vcid);
+rule: order(tc_vcid before tc_fcfl);
+rule: order(tc_fcfl before tc_seq);
+rule: order(tc_seq before tc_data);
+rule: order(tc_data before tc_fecf);
+rule: order(tc_fecf before tc_header_ptr);
+
+// 语义规则：某些字段的值依赖于其他字段
+rule: dependency(tc_fcfl depends_on tc_cc);

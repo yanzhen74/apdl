@@ -1,0 +1,21 @@
+// 自定义卫星协议定义
+// 用于特定任务的扩展协议
+
+// 自定义同步头
+field: custom_sync; type: Uint32; length: 4byte; scope: layer(physical); cover: entire_field; constraint: fixed(0xDEADBEEF); desc: "自定义同步头";
+
+// 任务标识字段
+field: mission_id; type: Uint16; length: 2byte; scope: layer(network); cover: entire_field; desc: "任务ID";
+field: satellite_id; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; desc: "卫星ID";
+
+// 数据优先级字段
+field: priority; type: Uint8; length: 1byte; scope: layer(transport); cover: entire_field; constraint: range(0..=7); desc: "数据优先级";
+
+// 加密标志字段
+field: encrypted; type: Uint8; length: 1byte; scope: layer(transport); cover: entire_field; constraint: range(0..=1); desc: "加密标志";
+
+// 有效载荷数据
+field: payload; type: RawData; length: dynamic; scope: layer(application); cover: entire_field; desc: "有效载荷数据";
+
+// 校验和
+field: checksum; type: Uint16; length: 2byte; scope: layer(transport); cover: entire_field; alg: xor_sum; desc: "数据校验和";

@@ -1,0 +1,21 @@
+[workspace]
+members = [
+    "apdl-core",
+    "apdl-dpe",
+    "apdl-poem",
+    "apdl-sak",
+    "apdl-lsk",
+    "apdl-pvpae",
+    "apdl-iam",
+    "apdl-app",
+]
+resolver = "2"
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

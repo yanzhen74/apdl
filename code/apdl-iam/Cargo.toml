@@ -1,11 +1,9 @@
 [package]
-name = "apdl-dpe"
+name = "apdl-iam"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 apdl-core = { path = "../apdl-core" }
-docx-rs = "0.4"
-calamine = "0.21"
-pdf-extract = "0.7"
-nom = "7.1"
+egui = "0.22"
+eframe = "0.22"

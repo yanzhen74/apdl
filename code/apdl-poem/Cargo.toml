@@ -1,0 +1,10 @@
+[package]
+name = "apdl-poem"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+apdl-core = { path = "../apdl-core" }
+nom = "7.1"
+
+[dev-dependencies]

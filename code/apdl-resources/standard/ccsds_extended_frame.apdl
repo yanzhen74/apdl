@@ -1,0 +1,32 @@
+// 扩展CCSDS帧定义，演示动态长度规则
+// 符合CCSDS 132.0-B-3 标准扩展
+
+// 同步标志字段 - 固定值0xEB90
+field: sync_flag; type: Uint16; length: 2byte; scope: layer(physical); cover: entire_field; constraint: fixed(0xEB90); desc: "CCSDS同步标志";
+
+// 主帧头 - 包含版本、航天器ID等信息
+field: tfvn; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=7); desc: "传输帧版本号";
+field: scid_high; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=255); desc: "航天器ID高位";
+field: vcid; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=63); desc: "虚拟通道ID";
+field: ocff; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "操作控制字段标志";
+
+// 帧长度字段 - 动态计算：等于主导头之后所有内容的长度-1
+field: frame_len; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; desc: "帧长度(减1)";
+
+// 数据字段 - 可变长度的数据域
+field: data_field; type: RawData; length: dynamic; scope: layer(application); cover: entire_field; desc: "数据域";
+
+// 帧尾 - 可能包含错误检测码
+field: fecf; type: Uint16; length: 2byte; scope: layer(data_link); cover: entire_field; alg: crc16; desc: "帧错误控制字段";
+
+// 语义规则：帧长度字段等于主导头之后所有内容的长度-1
+rule: length_rule(frame_len equals '(total_length - header_length - 1)');
+
+// 语义规则：CRC校验范围从同步标志到FECF之前的所有字段
+rule: crc_range(sync_flag to fecf);
+
+// 语义规则：数据字段在帧长度字段之后
+rule: order(frame_len before data_field);
+
+// 语义规则：数据字段在FECF之前
+rule: order(data_field before fecf);

@@ -1,0 +1,90 @@
+// CCSDS协议综合语义规则定义
+// 符合CCSDS 132.0-B-3, 133.0-B-1, 232.0-B-3 标准
+
+// ==================== 传输帧层 (Transfer Frame Level) ====================
+
+// 同步标志字段
+field: sync_flag; type: Uint16; length: 2byte; scope: layer(physical); cover: entire_field; constraint: fixed(0xEB90); desc: "同步标志";
+
+// 传输帧版本号
+field: tfvn; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "传输帧版本号";
+
+// 虚拟信道ID
+field: vcid; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=63); desc: "虚拟信道ID";
+
+// 操作控制字段标志
+field: ocff; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "操作控制字段标志";
+
+// 帧长度字段
+field: frame_len; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; desc: "帧长度(减1)";
+
+// 数据字段
+field: data_field; type: RawData; length: dynamic; scope: layer(application); cover: entire_field; desc: "数据域";
+
+// 帧错误控制字段
+field: fecf; type: Uint16; length: 2byte; scope: layer(data_link); cover: entire_field; alg: crc16; desc: "帧错误控制字段";
+
+// ==================== 数据包层 (Packet Level) ====================
+
+// 包版本号
+field: pversion; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=1); desc: "包版本号";
+
+// 包类型
+field: ptype; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=1); desc: "包类型(0-遥测,1-遥控)";
+
+// 二次头部标志
+field: shflag; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=1); desc: "二次头部标志";
+
+// 应用进程ID
+field: apid; type: Uint16; length: 2byte; scope: layer(network); cover: entire_field; constraint: range(0..=2047); desc: "应用进程ID";
+
+// 序列标志
+field: sf; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=3); desc: "序列标志(0-连续,1-首包,2-中间,3-末包)";
+
+// 序列计数器
+field: scount; type: Uint16; length: 2byte; scope: layer(network); cover: entire_field; desc: "序列计数器";
+
+// 包长度
+field: plen; type: Uint16; length: 2byte; scope: layer(network); cover: entire_field; desc: "包长度(减7)";
+
+// 包数据字段
+field: packet_data; type: RawData; length: dynamic; scope: layer(application); cover: entire_field; desc: "包数据域";
+
+// ==================== 语义规则定义 ====================
+
+// 1. 分路规则 - 根据虚拟信道&APID进行分路
+rule: routing_dispatch(field: vcid, apid; algorithm: hash_vcid_apid_to_route; desc: "根据虚拟信道和APID进行分路");
+
+// 2. 序列控制规则 - 根据虚拟信道&APID设置包计数
+rule: sequence_control(field: scount; trigger: on_apid_change; algorithm: auto_increment_per_apid; desc: "根据APID自动递增序列计数");
+
+// 3. 序列重置规则 - 根据序列标志设置序列计数
+rule: sequence_reset(field: scount; condition: sf equals 1; action: reset_to_zero; desc: "当序列标志为首包时重置序列计数");
+
+// 4. 同步规则 - 根据同步字进行同步（适用于TCP流传输）
+rule: synchronization(field: sync_flag; algorithm: pattern_match_sync_word; desc: "根据同步字进行帧同步");
+
+// 5. 校验规则 - 根据CRC对帧进行校验
+rule: validation(field: fecf; algorithm: crc16_verification; range: from(sync_flag) to(data_field); desc: "对指定范围进行CRC16校验");
+
+// 6. 指针同步规则 - 根据首导头指针在数据区同步嵌套的内部包
+rule: nested_sync(field: header_pointer; target: data_field; algorithm: seek_nested_packet_at_offset; desc: "在数据区根据指针定位嵌套包");
+
+// 7. 长度规则 - 帧长度字段等于后续字节数
+rule: length_calculation(field: frame_len; expression: '(total_length - 5)'; desc: "帧长度等于总长度减去头部(同步标志2+版本1+VCID1+OCFF1)");
+
+// 8. 包长度规则 - 包长度字段等于后续字节数
+rule: packet_length_calculation(field: plen; expression: '(packet_data_length + 7)'; desc: "包长度等于数据长度加7");
+
+// 9. 多路复用规则 - 根据包类型处理不同业务
+rule: multiplexing(field: ptype; condition: equals 0; route_to: telemetry_processor; desc: "遥测包路由到遥测处理器");
+rule: multiplexing(field: ptype; condition: equals 1; route_to: telecommand_processor; desc: "遥控包路由到遥控处理器");
+
+// 10. 序列完整性检查 - 验证序列连续性
+rule: sequence_integrity_check(field: scount; algorithm: continuity_check_per_apid; desc: "检查同一APID的序列连续性");
+
+// 11. 时间戳插入规则 - 根据需要插入时间戳
+rule: timestamp_insertion(condition: on_packet_generation; field: timestamp_field; algorithm: insert_current_time; desc: "生成包时插入时间戳");
+
+// 12. 优先级处理规则 - 根据优先级字段处理
+rule: priority_processing(field: priority_field; algorithm: priority_queue_schedule; desc: "根据优先级字段调度处理");

@@ -1,0 +1,91 @@
+// CAN扩展协议语义规则定义
+// 符合ISO 11898-1, SAE J1939, CANopen 等标准
+
+// ==================== CAN帧层 (CAN Frame Level) ====================
+
+// 帧格式标识符
+field: ide; type: Bit(1); length: 1bit; scope: layer(physical); cover: entire_field; constraint: range(0..=1); desc: "标识符扩展位(0-标准,1-扩展)";
+
+// 标准标识符 (11位)
+field: base_id; type: Uint16; length: 2byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=0x7FF); desc: "标准标识符(11位)";
+
+// 扩展标识符 (29位)
+field: ext_id; type: Uint32; length: 4byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=0x1FFFFFFF); desc: "扩展标识符(29位)";
+
+// 远程传输请求
+field: rtr; type: Bit(1); length: 1bit; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "远程传输请求位";
+
+// 数据长度码
+field: dlc; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=8); desc: "数据长度码";
+
+// 数据字段
+field: data_bytes; type: RawData; length: dynamic; scope: layer(application); cover: entire_field; desc: "数据字节";
+
+// 循环冗余校验
+field: crc; type: Uint16; length: 2byte; scope: layer(data_link); cover: entire_field; alg: crc15; desc: "循环冗余校验";
+
+// ==================== SAE J1939 层 (J1939 Layer) ====================
+
+// 优先级
+field: priority; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=7); desc: "消息优先级(0-最高,7-最低)";
+
+// 保留位
+field: reserved; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=1); desc: "保留位";
+
+// 数据页
+field: dp; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=1); desc: "数据页位";
+
+// PGN (参数组编号)
+field: pgn; type: Uint32; length: 4byte; scope: layer(network); cover: entire_field; desc: "参数组编号";
+
+// 源地址
+field: sa; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=255); desc: "源地址";
+
+// 目标地址
+field: da; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=255); desc: "目标地址";
+
+// ==================== CANopen 层 (CANopen Layer) ====================
+
+// 函数代码
+field: function_code; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=15); desc: "函数代码";
+
+// 节点ID
+field: node_id; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(1..=127); desc: "节点ID";
+
+// ==================== 语义规则定义 ====================
+
+// 1. 标识符路由规则 - 根据CAN ID进行分路
+rule: routing_dispatch(field: ext_id; algorithm: j1939_address_resolution; desc: "根据J1939扩展ID进行地址解析和路由");
+
+// 2. 优先级处理规则 - 根据优先级字段处理
+rule: priority_processing(field: priority; algorithm: priority_based_arbitration; desc: "根据优先级进行仲裁");
+
+// 3. PGN解析规则 - 根据PGN确定消息类型
+rule: pgn_resolution(field: pgn; algorithm: pgn_to_message_type_mapping; desc: "根据PGN映射到消息类型");
+
+// 4. 地址分配规则 - 根据源地址分配处理资源
+rule: address_allocation(field: sa; algorithm: dynamic_address_assignment; desc: "动态地址分配管理");
+
+// 5. 校验规则 - 根据CRC对帧进行校验
+rule: validation(field: crc; algorithm: crc15_verification; range: from(base_id) to(data_bytes); desc: "对指定范围进行CRC15校验");
+
+// 6. 数据长度验证规则 - 根据DLC验证数据长度
+rule: length_validation(field: dlc; condition: data_bytes.length equals (dlc_to_bytes_map); desc: "验证数据长度与DLC一致");
+
+// 7. 序列控制规则 - 处理多帧传输
+rule: sequence_control(condition: pgn indicates_multi_packet; algorithm: transport_protocol_assembly; desc: "处理多包传输协议");
+
+// 8. 时间同步规则 - 基于CAN网络的时间同步
+rule: time_synchronization(condition: on_time_sync_message; algorithm: network_time_sync; desc: "网络时间同步");
+
+// 9. 错误检测规则 - 检测和处理传输错误
+rule: error_detection(algorithm: can_error_frame_monitoring; desc: "监控CAN错误帧");
+
+// 10. 过滤规则 - 根据ID范围过滤消息
+rule: message_filtering(condition: ext_id in_range(min_id, max_id); action: accept_or_reject; desc: "基于ID范围的消息过滤");
+
+// 11. 周期性发送规则 - 管理周期性消息发送
+rule: periodic_transmission(field: pgn; condition: configured_periodic; algorithm: cyclic_message_scheduler; desc: "周期性消息调度");
+
+// 12. 状态机规则 - 管理节点状态变化
+rule: state_machine(condition: on_state_change_request; algorithm: node_state_transition; desc: "节点状态转换管理");

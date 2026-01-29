@@ -1,0 +1,23 @@
+// CCSDS AOS (Advanced Orbiting Systems) Frame 标准协议定义
+// 符合 CCSDS 732.0-B-4 标准
+
+// AOS同步标志字段
+field: aos_sync_flag; type: Uint32; length: 4byte; scope: layer(physical); cover: entire_field; constraint: fixed(0x1ACFFC1D); desc: "AOS同步标志";
+
+// 主通道帧头
+field: mcfc; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; desc: "主通道帧计数";
+field: vcfc_high; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; desc: "虚拟通道帧计数高位";
+field: vcfc_low; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; desc: "虚拟通道帧计数低位";
+field: clcw; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; desc: "控制字段";
+
+// 接入信道头
+field: acf_flag; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "接入信道字段标志";
+field: taflen; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; desc: "跟踪附属字段长度";
+field: synflg; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "同步标志";
+field: pktord; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "数据包排序";
+
+// 数据字段
+field: aos_data_field; type: RawData; length: dynamic; scope: layer(application); cover: entire_field; desc: "AOS数据域";
+
+// 帧尾
+field: aos_fecf; type: Uint16; length: 2byte; scope: layer(data_link); cover: entire_field; desc: "AOS帧错误控制字段";

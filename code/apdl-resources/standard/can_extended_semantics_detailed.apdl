@@ -1,0 +1,100 @@
+// CAN扩展协议语义规则定义
+// 符合ISO 11898-1, SAE J1939, CANopen 等标准
+
+// ==================== CAN帧层 (CAN Frame Level) ====================
+
+// 基础标识符 (11位)
+field: base_id; type: Uint16; length: 2byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=0x7FF); desc: "基础标识符(11位)";
+
+// 扩展标识符 (29位)
+field: ext_id; type: Uint32; length: 4byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=0x1FFFFFFF); desc: "扩展标识符(29位)";
+
+// 帧格式标志
+field: ide; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "标识符扩展标志";
+
+// 远程传输标志
+field: rtr; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "远程传输请求标志";
+
+// 数据长度码
+field: dlc; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=8); desc: "数据长度码";
+
+// 数据字段
+field: data_bytes; type: RawData; length: dynamic; scope: layer(application); cover: entire_field; desc: "数据字节";
+
+// 循环冗余校验
+field: crc; type: Uint16; length: 2byte; scope: layer(data_link); cover: entire_field; alg: crc15; desc: "循环冗余校验";
+
+// CRC定界符
+field: crc_delimiter; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: fixed(0x01); desc: "CRC定界符";
+
+// 确认槽
+field: ack_slot; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "确认槽";
+
+// 确认定界符
+field: ack_delimiter; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: fixed(0x01); desc: "确认定界符";
+
+// 结束标志
+field: eof; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: fixed(0x01); desc: "帧结束标志";
+
+// ==================== J1939特定字段 ====================
+
+// 优先级字段
+field: priority; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=7); desc: "J1939优先级字段";
+
+// 保留位
+field: reserved; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "保留位";
+
+// 数据页
+field: dp; type: Uint8; length: 1byte; scope: layer(data_link); cover: entire_field; constraint: range(0..=1); desc: "数据页";
+
+// PGN (Parameter Group Number) 字段
+field: pgn; type: Uint32; length: 4byte; scope: layer(network); cover: entire_field; desc: "参数组编号";
+
+// ==================== CANopen特定字段 ====================
+
+// 功能码
+field: function_code; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(0..=0x0F); desc: "CANopen功能码";
+
+// 节点ID
+field: node_id; type: Uint8; length: 1byte; scope: layer(network); cover: entire_field; constraint: range(1..=127); desc: "CANopen节点ID";
+
+// ==================== 语义规则定义 ====================
+
+// 1. 标识符路由规则 - 根据CAN ID进行分路
+rule: routing_dispatch(field: ext_id; algorithm: j1939_address_resolution; desc: "根据J1939扩展ID进行地址解析和路由");
+
+// 2. 优先级处理规则 - 根据优先级字段处理
+rule: priority_processing(field: priority; algorithm: priority_based_arbitration; desc: "根据优先级进行仲裁");
+
+// 3. 序列控制规则 - 处理连续消息的序列
+rule: sequence_control(field: ext_id; trigger: on_message_sequence; algorithm: sequence_tracking; desc: "跟踪消息序列");
+
+// 4. 多路复用规则 - 根据PGN进行多路复用
+rule: multiplexing(field: pgn; condition: pgn_based_routing; route: pgn_specific_handler; desc: "根据PGN进行消息路由");
+
+// 5. 校验规则 - 根据CRC对帧进行校验
+rule: validation(field: crc; algorithm: crc15_verification; range: from(base_id) to(data_bytes); desc: "对指定范围进行CRC15校验");
+
+// 6. 同步规则 - 根据帧起始进行同步
+rule: synchronization(field: base_id; algorithm: sof_synchronization; desc: "根据帧起始进行同步");
+
+// 7. 状态机规则 - CAN总线状态机
+rule: state_machine(condition: bus_idle; algorithm: transition_to_active; desc: "总线空闲时准备接收消息");
+
+// 8. 周期性传输规则 - 定期发送心跳消息
+rule: periodic_transmission(field: data_bytes; condition: heartbeat_interval; algorithm: send_heartbeat; desc: "按固定间隔发送心跳消息");
+
+// 9. 消息过滤规则 - 过滤特定ID的消息
+rule: message_filtering(condition: id_match(0x18FEFEEE); action: accept_or_reject; desc: "过滤特定ID的消息");
+
+// 10. 错误检测规则 - 检测CAN错误帧
+rule: error_detection(algorithm: error_frame_detection; desc: "检测CAN错误帧");
+
+// 11. 长度规则 - DLC字段等于数据长度
+rule: length_calculation(field: dlc; expression: 'data_bytes.length'; desc: "DLC字段等于数据字段的实际长度");
+
+// 12. 地址解析规则 - J1939地址解析
+rule: address_resolution(field: ext_id; algorithm: j1939_address_mapping; desc: "J1939地址映射和解析");
+
+// 13. 流量控制规则 - CAN FD流量控制
+rule: flow_control(field: dlc; algorithm: fd_rate_control; desc: "CAN FD速率控制");

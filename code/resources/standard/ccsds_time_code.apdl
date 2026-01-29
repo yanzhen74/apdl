@@ -1,0 +1,13 @@
+// CCSDS 时间码协议定义
+// 符合 CCSDS 301.0-B-4 标准
+
+// 时间码同步标志
+field: time_sync_flag; type: Uint16; length: 2byte; scope: layer(physical); cover: entire_field; constraint: fixed(0xAAA5); desc: "时间码同步标志";
+
+// 时间码主字段 - 包含天数和毫秒信息
+field: pfield; type: Uint32; length: 4byte; scope: layer(time); cover: entire_field; desc: "主要时间字段(天数)";
+field: sfield; type: Uint32; length: 4byte; scope: layer(time); cover: entire_field; desc: "次要时间字段(毫秒)";
+field: ffield; type: Uint8; length: 1byte; scope: layer(time); cover: entire_field; desc: "分数时间字段(微秒等)";
+
+// 时间码扩展字段
+field: ext_time_field; type: RawData; length: dynamic; scope: layer(time); cover: entire_field; desc: "扩展时间字段";

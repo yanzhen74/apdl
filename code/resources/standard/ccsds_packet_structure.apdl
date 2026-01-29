@@ -1,0 +1,16 @@
+// CCSDS 数据包结构定义
+// 包含包头、包数据字段和包尾的完整结构
+
+// 包头 - 包含包ID和包序列字段
+field: pkt_type; type: Uint8; length: 1byte; scope: layer(transport); cover: entire_field; constraint: range(0..=1); desc: "包类型(0=数据包,1=命令包)";
+field: sec_hdr_flag; type: Uint8; length: 1byte; scope: layer(transport); cover: entire_field; constraint: range(0..=1); desc: "二级头标志";
+field: apid; type: Uint16; length: 2byte; scope: layer(transport); cover: entire_field; constraint: range(0..=2047); desc: "应用进程ID";
+field: seq_flags; type: Uint8; length: 1byte; scope: layer(transport); cover: entire_field; constraint: range(0..=3); desc: "序列标志";
+field: pkt_seq_cnt; type: Uint16; length: 2byte; scope: layer(transport); cover: entire_field; desc: "包序列计数";
+field: pkt_len; type: Uint16; length: 2byte; scope: layer(transport); cover: entire_field; desc: "包长度(减1)";
+
+// 包数据字段 - 可变长度的数据
+field: pkt_data; type: RawData; length: dynamic; scope: layer(application); cover: entire_field; desc: "包数据字段";
+
+// 可选的包尾 - 错误检测码
+field: pkt_ecf; type: Uint16; length: 2byte; scope: layer(transport); cover: entire_field; alg: crc16; desc: "包错误检测字段";

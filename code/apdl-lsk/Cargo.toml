@@ -1,11 +1,9 @@
 [package]
-name = "apdl-dpe"
+name = "apdl-lsk"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 apdl-core = { path = "../apdl-core" }
-docx-rs = "0.4"
-calamine = "0.21"
-pdf-extract = "0.7"
-nom = "7.1"
+tokio = { version = "1.0", features = ["full"] }
+bytes = "1.0"
