@@ -1,4 +1,4 @@
-use apdl_poem::dsl::DslParserImpl;
+use apdl_poem::DslParserImpl;
 use apdl_poem::FrameAssembler;
 
 #[test]

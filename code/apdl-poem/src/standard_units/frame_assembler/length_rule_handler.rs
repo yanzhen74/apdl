@@ -5,8 +5,8 @@
 use regex::Regex;
 use std::collections::HashMap;
 
-use crate::dsl::SyntaxUnit;
 use crate::standard_units::frame_assembler::core::FrameAssembler;
+use apdl_core::SyntaxUnit;
 use apdl_core::{ProtocolError, SemanticRule};
 
 impl FrameAssembler {

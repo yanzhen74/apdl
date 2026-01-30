@@ -127,6 +127,15 @@ pub enum AlgorithmAst {
     Custom(String),
 }
 
+/// 字段映射条目
+#[derive(Debug, Clone, PartialEq)]
+pub struct FieldMappingEntry {
+    pub source_field: String,
+    pub target_field: String,
+    pub mapping_logic: String, // 映射逻辑，如 "hash(x) % 64"
+    pub default_value: String, // 默认值
+}
+
 /// DSL解析错误
 #[derive(Debug, Clone, PartialEq)]
 pub enum DslParseError {
@@ -270,6 +279,13 @@ pub enum SemanticRule {
     Redundancy {
         field_name: String,
         algorithm: String,
+        description: String,
+    },
+    // 连接器模式语义规则
+    FieldMapping {
+        source_package: String,
+        target_package: String,
+        mappings: Vec<FieldMappingEntry>,
         description: String,
     },
 }

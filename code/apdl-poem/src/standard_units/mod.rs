@@ -2,6 +2,7 @@
 //!
 //! 实现字段级语法单元，支持通过DSL定义协议结构
 
+pub mod connector;
 pub mod field_unit;
 pub mod frame_assembler;
 
