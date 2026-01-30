@@ -73,9 +73,25 @@ constraint: enum(IDLE=0, ACTIVE=1, STANDBY=2)
 ## 4. 语义规则语法
 
 ### 4.1 校验范围规则
+
+有两种校验范围规则，用于定义不同类型的校验算法：
+
+#### 4.1.1 CRC校验范围规则
+```rust
+rule: crc_range(start: start_field to end_field);
 ```
+- 使用CRC算法（如CRC16、CRC32、CRC15）进行校验
+- 适用于需要标准CRC校验的场景
+
+#### 4.1.2 校验和范围规则
+```rust
 rule: checksum_range(start: start_field to end_field);
 ```
+- 使用XOR算法进行校验和计算
+- 适用于简单的校验和计算场景
+
+**注意**: 为确保算法名称与实现一致，请根据所需算法选择合适的规则类型。如果字段声明为`alg: Crc16`，建议使用`crc_range`规则；如果字段声明为`alg: XorSum`，建议使用`checksum_range`规则。
+
 
 ### 4.2 依赖规则
 ```

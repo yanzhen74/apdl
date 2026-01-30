@@ -28,7 +28,8 @@ APDL（APDS Protocol Definition Language）语义规则系统是一个面向航�
 - **Multiplexing**: 多路复用规则 - 根据条件路由数据
 
 ### 3.2 数据完整性保障类
-- **ChecksumRange**: 校验范围规则 - 定义校验和覆盖范围
+- **ChecksumRange**: 校验范围规则 - 定义XOR校验和覆盖范围
+- **CrcRange**: CRC校验范围规则 - 定义CRC校验算法覆盖范围
 - **Validation**: 验证规则 - 对指定范围进行校验
 - **ErrorDetection**: 错误检测规则 - 检测协议错误
 

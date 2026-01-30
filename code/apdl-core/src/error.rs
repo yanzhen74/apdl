@@ -8,6 +8,8 @@ pub enum ProtocolError {
     FieldNotFound(String),
     /// 无效的帧格式
     InvalidFrameFormat(String),
+    /// 无效的字段定义
+    InvalidFieldDefinition(String),
     /// 解析错误
     ParseError(String),
     /// 验证错误
@@ -18,6 +20,8 @@ pub enum ProtocolError {
     ChecksumError(String),
     /// 依赖关系错误
     DependencyError(String),
+    /// 无效的表达式
+    InvalidExpression(String),
     /// 其他错误
     Other(String),
 }
@@ -27,11 +31,15 @@ impl fmt::Display for ProtocolError {
         match self {
             ProtocolError::FieldNotFound(msg) => write!(f, "Field not found: {}", msg),
             ProtocolError::InvalidFrameFormat(msg) => write!(f, "Invalid frame format: {}", msg),
+            ProtocolError::InvalidFieldDefinition(msg) => {
+                write!(f, "Invalid field definition: {}", msg)
+            }
             ProtocolError::ParseError(msg) => write!(f, "Parse error: {}", msg),
             ProtocolError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
             ProtocolError::LengthError(msg) => write!(f, "Length error: {}", msg),
             ProtocolError::ChecksumError(msg) => write!(f, "Checksum error: {}", msg),
             ProtocolError::DependencyError(msg) => write!(f, "Dependency error: {}", msg),
+            ProtocolError::InvalidExpression(msg) => write!(f, "Invalid expression: {}", msg),
             ProtocolError::Other(msg) => write!(f, "Other error: {}", msg),
         }
     }
