@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 apdl-core = { path = "../apdl-core" }
-egui = "0.22"
-eframe = "0.22"
+egui = "0.33.3"
+eframe = "0.33.3"
