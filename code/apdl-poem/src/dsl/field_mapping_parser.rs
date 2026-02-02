@@ -2,7 +2,7 @@
 //!
 //! 专门处理field_mapping语义规则的解析
 
-use apdl_core::{FieldMappingEntry, SemanticRule};
+use apdl_core::SemanticRule;
 
 /// 字段映射解析器
 pub struct FieldMappingParser;

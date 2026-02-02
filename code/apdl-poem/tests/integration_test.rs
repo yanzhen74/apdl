@@ -89,7 +89,7 @@ fn test_dsl_parser_semantic_rules_frame_assembler_integration() {
 
     // 验证字段值是否正确设置
     let sync_flag_value = assembler.get_field_value("sync_flag").unwrap();
-    println!("   sync_flag value: {:?}", sync_flag_value);
+    println!("   sync_flag value: {sync_flag_value:?}");
     assert_eq!(
         sync_flag_value,
         vec![0xEB, 0x90],
@@ -97,7 +97,7 @@ fn test_dsl_parser_semantic_rules_frame_assembler_integration() {
     );
 
     let data_field_value = assembler.get_field_value("data_field").unwrap();
-    println!("   data_field value: {:?}", data_field_value);
+    println!("   data_field value: {data_field_value:?}");
     assert_eq!(
         data_field_value,
         vec![0xDE, 0xAD, 0xBE, 0xEF],
@@ -216,7 +216,7 @@ fn test_ccsds_comprehensive_semantic_integration() {
 
     // 验证字段值是否正确设置
     let sync_flag_value = assembler.get_field_value("sync_flag").unwrap();
-    println!("   sync_flag value: {:?}", sync_flag_value);
+    println!("   sync_flag value: {sync_flag_value:?}");
     assert_eq!(
         sync_flag_value,
         vec![0xEB, 0x90],
@@ -224,7 +224,7 @@ fn test_ccsds_comprehensive_semantic_integration() {
     );
 
     let data_field_value = assembler.get_field_value("data_field").unwrap();
-    println!("   data_field value: {:?}", data_field_value);
+    println!("   data_field value: {data_field_value:?}");
     assert_eq!(
         data_field_value,
         vec![0xCA, 0xFE, 0xBA, 0xBE],
@@ -247,7 +247,7 @@ fn test_ccsds_comprehensive_semantic_integration() {
     println!("  - 解析了 {} 个语法单元", syntax_units.len());
     println!("  - 解析了 {} 个语义规则", semantic_rules.len());
     println!("  - 成功组装了 {} 字节的帧", frame.len());
-    println!("  - 帧内容: {:02X?}", frame);
+    println!("  - 帧内容: {frame:02X?}");
 }
 
 #[test]
@@ -319,15 +319,15 @@ fn test_can_extended_semantic_integration() {
 
     // 验证字段值是否正确设置
     let sof_value = assembler.get_field_value("sof").unwrap();
-    println!("   sof value: {:?}", sof_value);
+    println!("   sof value: {sof_value:?}");
     assert_eq!(sof_value, vec![0x00], "sof值应为[0x00]");
 
     let id_high_value = assembler.get_field_value("id_high").unwrap();
-    println!("   id_high value: {:?}", id_high_value);
+    println!("   id_high value: {id_high_value:?}");
     assert_eq!(id_high_value, vec![0x12, 0x34], "id_high值应为[0x12, 0x34]");
 
     let data_field_value = assembler.get_field_value("data_field").unwrap();
-    println!("   data_field value: {:?}", data_field_value);
+    println!("   data_field value: {data_field_value:?}");
     assert_eq!(
         data_field_value,
         vec![0x01, 0x02, 0x03],
@@ -350,7 +350,7 @@ fn test_can_extended_semantic_integration() {
     println!("  - 解析了 {} 个语法单元", syntax_units.len());
     println!("  - 解析了 {} 个语义规则", semantic_rules.len());
     println!("  - 成功组装了 {} 字节的CAN帧", frame.len());
-    println!("  - 帧内容: {:02X?}", frame);
+    println!("  - 帧内容: {frame:02X?}");
 }
 
 #[test]
@@ -416,7 +416,7 @@ fn test_function_expression_semantic_integration() {
 
     // 验证字段值是否正确设置
     let data_field_value = assembler.get_field_value("data_field").unwrap();
-    println!("   data_field value: {:?}", data_field_value);
+    println!("   data_field value: {data_field_value:?}");
     assert_eq!(
         data_field_value,
         vec![0xCA, 0xFE, 0xBA, 0xBE],
@@ -446,7 +446,7 @@ fn test_function_expression_semantic_integration() {
         // 将字节转换为u16值
         let data_len_value =
             ((data_len_value_bytes[0] as u16) << 8) + (data_len_value_bytes[1] as u16);
-        println!("   计算出的data_len值: {}", data_len_value);
+        println!("   计算出的data_len值: {data_len_value}");
         println!("   期望的data_len值: {}", 15 + 2 - 2 - 1); // pos(fecf)=15, len(fecf)=2, pos(version)=2
         assert_eq!(
             data_len_value, 14,
@@ -456,7 +456,7 @@ fn test_function_expression_semantic_integration() {
 
     // 验证CRC字段是否被自动计算
     if let Ok(crc_value_bytes) = assembler.get_field_value("fecf") {
-        println!("   计算出的fecf(CRC)值: {:02X?}", crc_value_bytes);
+        println!("   计算出的fecf(CRC)值: {crc_value_bytes:02X?}");
         // CRC值应该基于sync_flag到data_field的范围计算得出
         // 我们主要验证CRC字段已经被设置（而不是保持默认值）
         assert_eq!(crc_value_bytes.len(), 2, "CRC字段应为2字节");
@@ -467,7 +467,7 @@ fn test_function_expression_semantic_integration() {
     println!("  - 解析了 {} 个语法单元", syntax_units.len());
     println!("  - 解析了 {} 个语义规则", semantic_rules.len());
     println!("  - 成功组装了 {} 字节的帧", frame.len());
-    println!("  - 帧内容: {:02X?}", frame);
+    println!("  - 帧内容: {frame:02X?}");
     println!("  - len()和pos()函数表达式解析功能正常");
     println!("  - CRC字段根据checksum_range规则自动计算");
 }

@@ -2,11 +2,7 @@
 //!
 //! 使用简单的字符串处理实现APDL DSL的解析，支持字段定义和协议结构描述
 
-use apdl_core::{
-    AlgorithmAst, ChecksumAlgorithm, Constraint, CoverDesc, LengthDesc, LengthUnit, ProtocolError,
-    SemanticRule, SyntaxUnit, UnitType,
-};
-use std::collections::HashMap;
+use apdl_core::{CoverDesc, LengthDesc, SemanticRule, SyntaxUnit, UnitType};
 
 // 导入其他模块的函数
 use crate::dsl::field_mapping_parser::FieldMappingParser;
@@ -15,6 +11,12 @@ use crate::dsl::semantic_rule_parsers::SemanticRuleParsers;
 
 /// DSL解析器实现
 pub struct DslParserImpl;
+
+impl Default for DslParserImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl DslParserImpl {
     pub fn new() -> Self {
@@ -42,7 +44,7 @@ impl DslParserImpl {
                     Ok(unit) => {
                         units.push(unit);
                     }
-                    Err(e) => return Err(format!("Parse error on line '{}': {}", trimmed_line, e)),
+                    Err(e) => return Err(format!("Parse error on line '{trimmed_line}': {e}")),
                 }
             }
         }
@@ -66,8 +68,7 @@ impl DslParserImpl {
                     }
                     Err(e) => {
                         return Err(format!(
-                            "Semantic rule parse error on line '{}': {}",
-                            trimmed_line, e
+                            "Semantic rule parse error on line '{trimmed_line}': {e}"
                         ))
                     }
                 }
@@ -105,9 +106,9 @@ impl DslParserImpl {
         for part in remaining.split(';') {
             let part = part.trim();
             if part.starts_with("constraint:") {
-                constraint = Some(parse_constraint(&part[11..].trim())?);
+                constraint = Some(parse_constraint(part[11..].trim())?);
             } else if part.starts_with("alg:") {
-                alg = Some(parse_algorithm(&part[4..].trim())?);
+                alg = Some(parse_algorithm(part[4..].trim())?);
             } else if part.starts_with("associate:") {
                 associate = part[10..]
                     .trim()
@@ -232,7 +233,6 @@ impl DslParserImpl {
 
             // 查找匹配的')'
             let mut paren_count = 1;
-            let mut last_pos = 0;
             let mut in_quote = false;
             let mut quote_char = '"';
 
@@ -259,7 +259,6 @@ impl DslParserImpl {
                     }
                     _ => {}
                 }
-                last_pos = pos;
             }
 
             Err("Unmatched parenthesis in rule".to_string())
@@ -302,7 +301,7 @@ impl DslParserImpl {
             "address_resolution" => SemanticRuleParsers::parse_address_resolution(params),
             "security" => SemanticRuleParsers::parse_security(params),
             "redundancy" => SemanticRuleParsers::parse_redundancy(params),
-            _ => Err(format!("Unknown rule type: {}", rule_type)),
+            _ => Err(format!("Unknown rule type: {rule_type}")),
         }
     }
 }

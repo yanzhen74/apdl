@@ -2,7 +2,7 @@
 //!
 //! 处理与校验和相关的语义规则，包括CRC、XOR等算法
 
-use apdl_core::{AlgorithmAst, ChecksumAlgorithm, ProtocolError, SemanticRule};
+use apdl_core::{AlgorithmAst, ChecksumAlgorithm, ProtocolError};
 
 use crate::standard_units::frame_assembler::core::FrameAssembler;
 
@@ -31,7 +31,10 @@ impl FrameAssembler {
             ChecksumAlgorithm::CRC16 => self.calculate_crc16(data_to_checksum) as u64,
             ChecksumAlgorithm::CRC32 => self.calculate_crc32(data_to_checksum) as u64,
             ChecksumAlgorithm::CRC15 => self.calculate_crc15(data_to_checksum) as u64, // CAN协议专用
-            ChecksumAlgorithm::XOR => self.calculate_xor(data_to_checksum) as u64,
+            ChecksumAlgorithm::XOR => {
+                crate::standard_units::frame_assembler::utils::calculate_xor(data_to_checksum)
+                    as u64
+            }
         };
 
         // 确定校验和应该写入哪个字段
@@ -59,7 +62,7 @@ impl FrameAssembler {
                         let write_pos = field_offset + i;
                         if write_pos < frame_data.len() {
                             frame_data[write_pos] = byte;
-                            println!("DEBUG: Wrote byte {:02X} to position {}", byte, write_pos);
+                            println!("DEBUG: Wrote byte {byte:02X} to position {write_pos}");
                         } else {
                             println!("DEBUG: Cannot write byte {:02X} to position {}, exceeds frame length {}", byte, write_pos, frame_data.len());
                         }
@@ -95,7 +98,7 @@ impl FrameAssembler {
                         let write_pos = field_offset + i;
                         if write_pos < frame_data.len() {
                             frame_data[write_pos] = byte;
-                            println!("DEBUG: Wrote byte {:02X} to position {}", byte, write_pos);
+                            println!("DEBUG: Wrote byte {byte:02X} to position {write_pos}");
                         } else {
                             println!("DEBUG: Cannot write byte {:02X} to position {}, exceeds frame length {}", byte, write_pos, frame_data.len());
                         }
@@ -111,8 +114,7 @@ impl FrameAssembler {
         }
 
         println!(
-            "Calculated checksum {:?} for range {} to {}: {:?}",
-            algorithm, start_field, end_field, checksum
+            "Calculated checksum {algorithm:?} for range {start_field} to {end_field}: {checksum:?}"
         );
         Ok(())
     }
@@ -141,12 +143,14 @@ impl FrameAssembler {
             ChecksumAlgorithm::CRC16 => self.calculate_crc16(data_to_checksum) as u64,
             ChecksumAlgorithm::CRC32 => self.calculate_crc32(data_to_checksum) as u64,
             ChecksumAlgorithm::CRC15 => self.calculate_crc15(data_to_checksum) as u64, // CAN协议专用
-            ChecksumAlgorithm::XOR => self.calculate_xor(data_to_checksum) as u64,
+            ChecksumAlgorithm::XOR => {
+                crate::standard_units::frame_assembler::utils::calculate_xor(data_to_checksum)
+                    as u64
+            }
         };
 
         println!(
-            "Validated checksum {:?} for range {} to {}: {:?}",
-            algorithm, start_field, end_field, calculated_checksum
+            "Validated checksum {algorithm:?} for range {start_field} to {end_field}: {calculated_checksum:?}"
         );
         Ok(())
     }
@@ -166,23 +170,6 @@ impl FrameAssembler {
         }
     }
 
-    /// 计算CRC16校验和
-    fn calculate_crc16(&self, data: &[u8]) -> u16 {
-        // 简化的CRC16计算，实际实现会更复杂
-        let mut crc: u16 = 0xFFFF;
-        for byte in data {
-            crc ^= (*byte as u16) << 8;
-            for _ in 0..8 {
-                if (crc & 0x8000) != 0 {
-                    crc = (crc << 1) ^ 0x1021;
-                } else {
-                    crc <<= 1;
-                }
-            }
-        }
-        crc
-    }
-
     /// 计算CRC32校验和
     fn calculate_crc32(&self, data: &[u8]) -> u32 {
         // 简化的CRC32计算
@@ -198,36 +185,5 @@ impl FrameAssembler {
             }
         }
         !crc
-    }
-
-    /// 计算CRC15校验和 (CAN协议专用)
-    fn calculate_crc15(&self, data: &[u8]) -> u16 {
-        // CAN协议使用的CRC15算法
-        let mut crc: u16 = 0x0000;
-        for byte in data {
-            crc ^= (*byte as u16) << 7;
-            for _ in 0..8 {
-                crc <<= 1;
-                if (crc & 0x8000) != 0 {
-                    crc ^= 0x4599;
-                }
-            }
-        }
-        (crc >> 1) & 0x7FFF
-    }
-
-    /// 计算XOR校验和
-    ///
-    /// 注意：当前实现为简单的逐字节异或运算（传统单字节XOR）。
-    /// 结果会被转换为u64并根据目标字段大小扩展为相应字节数组。
-    /// 例如：若计算结果为74(u8)，目标字段为2字节，则最终写入[0, 74]。
-    ///
-    /// 未来扩展：可增加XOR-16、XOR-32等多字节XOR算法变体。
-    fn calculate_xor(&self, data: &[u8]) -> u8 {
-        let mut xor: u8 = 0;
-        for byte in data {
-            xor ^= byte;
-        }
-        xor
     }
 }

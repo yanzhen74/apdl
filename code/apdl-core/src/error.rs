@@ -22,6 +22,8 @@ pub enum ProtocolError {
     DependencyError(String),
     /// 无效的表达式
     InvalidExpression(String),
+    /// 同步错误
+    SynchronizationError(String),
     /// 其他错误
     Other(String),
 }
@@ -29,18 +31,19 @@ pub enum ProtocolError {
 impl fmt::Display for ProtocolError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ProtocolError::FieldNotFound(msg) => write!(f, "Field not found: {}", msg),
-            ProtocolError::InvalidFrameFormat(msg) => write!(f, "Invalid frame format: {}", msg),
+            ProtocolError::FieldNotFound(msg) => write!(f, "Field not found: {msg}"),
+            ProtocolError::InvalidFrameFormat(msg) => write!(f, "Invalid frame format: {msg}"),
             ProtocolError::InvalidFieldDefinition(msg) => {
-                write!(f, "Invalid field definition: {}", msg)
+                write!(f, "Invalid field definition: {msg}")
             }
-            ProtocolError::ParseError(msg) => write!(f, "Parse error: {}", msg),
-            ProtocolError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
-            ProtocolError::LengthError(msg) => write!(f, "Length error: {}", msg),
-            ProtocolError::ChecksumError(msg) => write!(f, "Checksum error: {}", msg),
-            ProtocolError::DependencyError(msg) => write!(f, "Dependency error: {}", msg),
-            ProtocolError::InvalidExpression(msg) => write!(f, "Invalid expression: {}", msg),
-            ProtocolError::Other(msg) => write!(f, "Other error: {}", msg),
+            ProtocolError::ParseError(msg) => write!(f, "Parse error: {msg}"),
+            ProtocolError::ValidationError(msg) => write!(f, "Validation error: {msg}"),
+            ProtocolError::LengthError(msg) => write!(f, "Length error: {msg}"),
+            ProtocolError::ChecksumError(msg) => write!(f, "Checksum error: {msg}"),
+            ProtocolError::DependencyError(msg) => write!(f, "Dependency error: {msg}"),
+            ProtocolError::InvalidExpression(msg) => write!(f, "Invalid expression: {msg}"),
+            ProtocolError::SynchronizationError(msg) => write!(f, "Synchronization error: {msg}"),
+            ProtocolError::Other(msg) => write!(f, "Other error: {msg}"),
         }
     }
 }

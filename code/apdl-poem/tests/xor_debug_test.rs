@@ -65,7 +65,7 @@ fn test_fixed_xor_calculation() {
 
     // 组装帧 - 这里会触发所有的规则处理
     let frame = assembler.assemble_frame().expect("帧组装失败");
-    println!("组装的帧: {:02X?}", frame);
+    println!("组装的帧: {frame:02X?}");
 
     // 验证帧长度
     assert_eq!(frame.len(), 18, "帧长度应该是18字节");
@@ -86,8 +86,7 @@ fn test_fixed_xor_calculation() {
     let final_frame_data = &frame[0..16]; // sync_flag到data_field结束
     let theoretical_xor = calculate_manual_xor(final_frame_data);
     println!(
-        "基于最终帧数据的理论XOR值: 0x{:02X} ({})",
-        theoretical_xor, theoretical_xor
+        "基于最终帧数据的理论XOR值: 0x{theoretical_xor:02X} ({theoretical_xor})"
     );
     println!("实际帧中的XOR值: 0x{:02X} ({})", frame[17], frame[17]); // fecf的低字节
 
@@ -110,11 +109,10 @@ fn test_fixed_xor_calculation() {
             let old_xor = xor_acc;
             xor_acc ^= byte;
             println!(
-                "  位置 {}: 0x{:02X} ^ 0x{:02X} = 0x{:02X}",
-                i, old_xor, byte, xor_acc
+                "  位置 {i}: 0x{old_xor:02X} ^ 0x{byte:02X} = 0x{xor_acc:02X}"
             );
         }
-        println!("最终XOR: 0x{:02X}", xor_acc);
+        println!("最终XOR: 0x{xor_acc:02X}");
     }
 }
 

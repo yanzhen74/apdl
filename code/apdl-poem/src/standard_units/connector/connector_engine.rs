@@ -3,7 +3,6 @@
 //! 负责执行字段映射规则，将源包的字段值映射到目标包的字段
 
 use apdl_core::{FieldMappingEntry, SemanticRule, SyntaxUnit};
-use std::collections::HashMap;
 
 /// 连接器引擎
 pub struct ConnectorEngine {
@@ -34,8 +33,8 @@ impl ConnectorEngine {
     ) -> Result<(), Box<dyn std::error::Error>> {
         for rule in &self.mapping_rules {
             if let SemanticRule::FieldMapping {
-                source_package: source_pkg_name,
-                target_package: target_pkg_name,
+                source_package: _source_pkg_name,
+                target_package: _target_pkg_name,
                 mappings,
                 description: _,
             } = rule
@@ -88,7 +87,7 @@ impl ConnectorEngine {
     }
 
     /// 获取字段值（简化实现）
-    fn get_field_value(&self, field: &SyntaxUnit) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    fn get_field_value(&self, _field: &SyntaxUnit) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         // 在实际实现中，这里会从实际的数据中获取字段值
         // 这里返回一个示例值
         Ok(vec![0x01, 0x02]) // 示例值
@@ -137,15 +136,14 @@ impl ConnectorEngine {
         &self,
         default_value: &str,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        if default_value.starts_with("0x") {
-            let hex_str = &default_value[2..];
+        if let Some(hex_str) = default_value.strip_prefix("0x") {
             let value = u64::from_str_radix(hex_str, 16)
-                .map_err(|_| format!("Invalid hex value: {}", default_value))?;
+                .map_err(|_| format!("Invalid hex value: {default_value}"))?;
             Ok(value.to_be_bytes().to_vec())
         } else {
             let value = default_value
                 .parse::<u64>()
-                .map_err(|_| format!("Invalid decimal value: {}", default_value))?;
+                .map_err(|_| format!("Invalid decimal value: {default_value}"))?;
             Ok(value.to_be_bytes().to_vec())
         }
     }

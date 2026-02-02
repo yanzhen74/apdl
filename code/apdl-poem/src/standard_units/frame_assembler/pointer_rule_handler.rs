@@ -16,8 +16,7 @@ impl FrameAssembler {
     ) -> Result<(), ProtocolError> {
         // 指针字段指向目标字段的逻辑处理
         println!(
-            "Applied pointer rule: {} points to {}",
-            pointer_field, target_field
+            "Applied pointer rule: {pointer_field} points to {target_field}"
         );
         Ok(())
     }

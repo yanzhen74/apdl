@@ -84,7 +84,7 @@ impl FieldMapper {
         if let Some(func) = self.mapping_functions.get(mapping_function_name) {
             Ok(func(source_value))
         } else {
-            Err(format!("Unknown mapping function: {}", mapping_function_name).into())
+            Err(format!("Unknown mapping function: {mapping_function_name}").into())
         }
     }
 

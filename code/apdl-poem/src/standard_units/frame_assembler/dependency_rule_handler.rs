@@ -18,13 +18,11 @@ impl FrameAssembler {
             || !self.field_index.contains_key(dependency_field)
         {
             return Err(ProtocolError::FieldNotFound(format!(
-                "Dependent or dependency field not found: {} or {}",
-                dependent_field, dependency_field
+                "Dependent or dependency field not found: {dependent_field} or {dependency_field}"
             )));
         }
         println!(
-            "Applied dependency rule: {} depends on {}",
-            dependent_field, dependency_field
+            "Applied dependency rule: {dependent_field} depends on {dependency_field}"
         );
         Ok(())
     }

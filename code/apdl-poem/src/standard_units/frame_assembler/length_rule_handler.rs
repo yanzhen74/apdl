@@ -2,11 +2,8 @@
 //!
 //! 处理与长度相关的语义规则，包括长度表达式计算和函数表达式解析
 
-use regex::Regex;
-use std::collections::HashMap;
 
 use crate::standard_units::frame_assembler::core::FrameAssembler;
-use apdl_core::SyntaxUnit;
 use apdl_core::{ProtocolError, SemanticRule};
 
 impl FrameAssembler {
@@ -50,8 +47,7 @@ impl FrameAssembler {
                 // 计算长度表达式的值
                 let length_value = self.evaluate_length_expression(expression, frame_data)?;
                 println!(
-                    "DEBUG: Calculated length_value for field '{}' with expression '{}': {}",
-                    clean_field_name, expression, length_value
+                    "DEBUG: Calculated length_value for field '{clean_field_name}' with expression '{expression}': {length_value}"
                 );
 
                 // 查找字段在帧中的位置
@@ -114,8 +110,7 @@ impl FrameAssembler {
 
         // 移除可能的双引号和括号
         println!(
-            "DEBUG: evaluate_length_expression - Original expression: '{:?}'",
-            expression
+            "DEBUG: evaluate_length_expression - Original expression: '{expression:?}'"
         );
         // 首先移除最外层的引号（处理转义引号）
         let mut expr_cleaned = expression.trim().to_string();
@@ -132,8 +127,7 @@ impl FrameAssembler {
         }
 
         println!(
-            "DEBUG: evaluate_length_expression - After cleaning: '{:?}'",
-            expr_cleaned
+            "DEBUG: evaluate_length_expression - After cleaning: '{expr_cleaned:?}'"
         );
 
         // 检查是否包含 min 或 max 函数
@@ -185,8 +179,7 @@ impl FrameAssembler {
             return match inner.parse::<u64>() {
                 Ok(value) => Ok(value),
                 Err(_) => Err(ProtocolError::InvalidExpression(format!(
-                    "Unable to parse quoted expression: {}",
-                    expression
+                    "Unable to parse quoted expression: {expression}"
                 ))),
             };
         }
@@ -236,8 +229,7 @@ impl FrameAssembler {
         match expr_cleaned.parse::<u64>() {
             Ok(value) => Ok(value),
             Err(_) => Err(ProtocolError::InvalidExpression(format!(
-                "Unable to parse expression: {}",
-                expression
+                "Unable to parse expression: {expression}"
             ))),
         }
     }
@@ -255,8 +247,8 @@ impl FrameAssembler {
             .trim_matches(|c| c == '(' || c == ')');
         let mut result = expr_cleaned.to_string();
 
-        println!("DEBUG: Original expression: '{:?}'", expression);
-        println!("DEBUG: Cleaned expression: '{:?}'", expr_cleaned);
+        println!("DEBUG: Original expression: '{expression:?}'");
+        println!("DEBUG: Cleaned expression: '{expr_cleaned:?}'");
 
         // 检查表达式是否可能缺少右括号（平衡性检查）
         // 如果原始表达式以右括号结尾，但在清理过程中丢失了，我们尝试恢复它
@@ -272,8 +264,7 @@ impl FrameAssembler {
                     result.push(')');
                 }
                 println!(
-                    "DEBUG: Restored missing parentheses, new result: '{:?}'",
-                    result
+                    "DEBUG: Restored missing parentheses, new result: '{result:?}'"
                 );
             }
         }
@@ -295,13 +286,12 @@ impl FrameAssembler {
             let field_name = &matched[field_name_start..field_name_end].trim();
 
             println!(
-                "DEBUG: Found len function: {:?}, field_name: {:?}",
-                matched, field_name
+                "DEBUG: Found len function: {matched:?}, field_name: {field_name:?}"
             );
 
             if let Ok(size) = self.get_field_size_by_name(field_name) {
                 temp_replacements.push((matched.to_string(), size.to_string()));
-                println!("DEBUG: Adding replacement: {:?} -> {:?}", matched, size);
+                println!("DEBUG: Adding replacement: {matched:?} -> {size:?}");
             }
         }
 
@@ -318,13 +308,12 @@ impl FrameAssembler {
             let field_name = &matched[field_name_start..field_name_end].trim();
 
             println!(
-                "DEBUG: Found pos function: {:?}, field_name: {:?}",
-                matched, field_name
+                "DEBUG: Found pos function: {matched:?}, field_name: {field_name:?}"
             );
 
             if let Ok(position) = self.get_field_position(field_name) {
                 temp_replacements.push((matched.to_string(), position.to_string()));
-                println!("DEBUG: Adding replacement: {:?} -> {:?}", matched, position);
+                println!("DEBUG: Adding replacement: {matched:?} -> {position:?}");
             }
         }
 
@@ -337,21 +326,19 @@ impl FrameAssembler {
                 .reverse()
         });
 
-        println!("DEBUG: Temp replacements: {:?}", temp_replacements);
+        println!("DEBUG: Temp replacements: {temp_replacements:?}");
 
         // 应用替换
         for (old, new) in temp_replacements {
             println!(
-                "DEBUG: Replacing '{:?}' with '{:?}' in '{:?}'",
-                old, new, result
+                "DEBUG: Replacing '{old:?}' with '{new:?}' in '{result:?}'"
             );
             result = result.replacen(&old, &new, 1);
-            println!("DEBUG: After replacement: '{:?}'", result);
+            println!("DEBUG: After replacement: '{result:?}'");
         }
 
         println!(
-            "DEBUG: Expression after function substitution: '{:?}'",
-            result
+            "DEBUG: Expression after function substitution: '{result:?}'"
         );
 
         // 移除可能的外部引号
@@ -362,8 +349,7 @@ impl FrameAssembler {
         // 支持 +, -, *, / 等基本运算和 min/max 函数
         let final_result = self.evaluate_math_expression(&result_without_quotes)?;
         println!(
-            "DEBUG: Final result after math evaluation: {:?}",
-            final_result
+            "DEBUG: Final result after math evaluation: {final_result:?}"
         );
 
         Ok(final_result)
@@ -436,7 +422,7 @@ impl FrameAssembler {
         // 如果没有运算符，尝试直接解析为数字
         cleaned
             .parse::<u64>()
-            .map_err(|_| ProtocolError::InvalidExpression(format!("Invalid expression: {}", expr)))
+            .map_err(|_| ProtocolError::InvalidExpression(format!("Invalid expression: {expr}")))
     }
 
     /// 评估算术表达式（支持 +, -, *, / 运算符）
@@ -449,10 +435,10 @@ impl FrameAssembler {
         // 首先处理乘除法
         let mut tokens: Vec<String> = Vec::new();
         let mut current_token = String::new();
-        let mut chars = s.chars().peekable();
+        let chars = s.chars().peekable();
 
         // 分词
-        while let Some(ch) = chars.next() {
+        for ch in chars {
             match ch {
                 '+' | '-' | '*' | '/' => {
                     if !current_token.is_empty() {
@@ -568,15 +554,7 @@ impl FrameAssembler {
 
         tokens[0]
             .parse::<u64>()
-            .map_err(|_| ProtocolError::InvalidExpression(format!("Invalid expression: {}", expr)))
-    }
-
-    /// 判断是否为数据字段
-    fn is_data_field(&self, field: &SyntaxUnit) -> bool {
-        field.field_id.to_lowercase().contains("data")
-            || field.field_id.to_lowercase().contains("payload")
-            || field.field_id.to_lowercase().contains("message")
-            || field.field_id.to_lowercase().contains("content")
+            .map_err(|_| ProtocolError::InvalidExpression(format!("Invalid expression: {expr}")))
     }
 
     /// 评估长度参数（可以是数字、字段长度或函数）
@@ -677,8 +655,7 @@ impl FrameAssembler {
 
         // 如果都不是，返回错误
         Err(ProtocolError::InvalidExpression(format!(
-            "Invalid length argument: {}",
-            arg
+            "Invalid length argument: {arg}"
         )))
     }
 }

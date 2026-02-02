@@ -15,12 +15,19 @@ pub fn parse_conditional(params: &str) -> Result<SemanticRule, String> {
 
 /// 解析顺序规则
 pub fn parse_order(params: &str) -> Result<SemanticRule, String> {
-    // 解析字段顺序，例如 "fieldA before fieldB"
+    // 解析字段顺序，例如 "fieldA before fieldB" 或 "first: fieldA before fieldB"
     let params = params.trim();
     let parts: Vec<&str> = params.split(" before ").collect();
     if parts.len() == 2 {
+        let first_field = parts[0].trim();
+        let first_field = if first_field.starts_with("first: ") {
+            first_field[6..].trim() // 跳过 "first: " 前缀
+        } else {
+            first_field
+        };
+
         Ok(SemanticRule::Order {
-            first_field: parts[0].trim().to_string(),
+            first_field: first_field.to_string(),
             second_field: parts[1].trim().to_string(),
         })
     } else {
@@ -113,6 +120,8 @@ pub fn parse_sequence_control(params: &str) -> Result<SemanticRule, String> {
 
         if let Some(desc_start) = params.find("desc:") {
             description = params[desc_start + 5..].trim().to_string();
+            // 移除字符串两端的引号
+            description = description.trim_matches('"').to_string();
         }
     }
 
@@ -150,6 +159,8 @@ pub fn parse_priority_processing(params: &str) -> Result<SemanticRule, String> {
 
         if let Some(desc_start) = params.find("desc:") {
             description = params[desc_start + 5..].trim().to_string();
+            // 移除字符串两端的引号
+            description = description.trim_matches('"').to_string();
         }
     }
 
@@ -186,6 +197,8 @@ pub fn parse_state_machine(params: &str) -> Result<SemanticRule, String> {
 
         if let Some(desc_start) = params.find("desc:") {
             description = params[desc_start + 5..].trim().to_string();
+            // 移除字符串两端的引号
+            description = description.trim_matches('"').to_string();
         }
     }
 
@@ -232,6 +245,8 @@ pub fn parse_periodic_transmission(params: &str) -> Result<SemanticRule, String>
 
         if let Some(desc_start) = params.find("desc:") {
             description = params[desc_start + 5..].trim().to_string();
+            // 移除字符串两端的引号
+            description = description.trim_matches('"').to_string();
         }
     }
 
@@ -271,6 +286,8 @@ pub fn parse_message_filtering(params: &str) -> Result<SemanticRule, String> {
 
         if let Some(desc_start) = params.find("desc:") {
             description = params[desc_start + 5..].trim().to_string();
+            // 移除字符串两端的引号
+            description = description.trim_matches('"').to_string();
         }
     }
 
@@ -288,7 +305,7 @@ pub fn parse_sequence_reset(params: &str) -> Result<SemanticRule, String> {
     let mut field_name = String::new();
     let mut condition = String::new();
     let mut action = String::new();
-    let mut description = String::new();
+    let mut _description = String::new();
 
     if params.contains("field:") && params.contains("condition:") && params.contains("action:") {
         if let Some(field_start) = params.find("field:") {
@@ -318,12 +335,12 @@ pub fn parse_sequence_reset(params: &str) -> Result<SemanticRule, String> {
         }
 
         if let Some(desc_start) = params.find("desc:") {
-            description = params[desc_start + 5..].trim().to_string();
+            let _ = params[desc_start + 5..].trim().to_string();
         }
     }
 
     Ok(SemanticRule::Conditional {
-        condition: format!("{} {} {}", field_name, condition, action),
+        condition: format!("{field_name} {condition} {action}"),
     })
 }
 
@@ -334,7 +351,7 @@ pub fn parse_timestamp_insertion(params: &str) -> Result<SemanticRule, String> {
     let mut condition = String::new();
     let mut field_name = String::new();
     let mut algorithm = String::new();
-    let mut description = String::new();
+    let mut _description = String::new();
 
     if params.contains("condition:") && params.contains("field:") && params.contains("algorithm:") {
         if let Some(cond_start) = params.find("condition:") {
@@ -362,12 +379,12 @@ pub fn parse_timestamp_insertion(params: &str) -> Result<SemanticRule, String> {
         }
 
         if let Some(desc_start) = params.find("desc:") {
-            description = params[desc_start + 5..].trim().to_string();
+            let _ = params[desc_start + 5..].trim().to_string();
         }
     }
 
     Ok(SemanticRule::Conditional {
-        condition: format!("{} on {} with {}", condition, field_name, algorithm),
+        condition: format!("{condition} on {field_name} with {algorithm}"),
     })
 }
 

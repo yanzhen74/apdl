@@ -16,8 +16,7 @@ impl FrameAssembler {
     ) -> Result<(), ProtocolError> {
         // 应用自定义算法到指定字段
         println!(
-            "Applied custom algorithm {} to field {}",
-            algorithm, field_name
+            "Applied custom algorithm {algorithm} to field {field_name}"
         );
         Ok(())
     }

@@ -2,7 +2,7 @@
 //!
 //! 验证字段映射规则中枚举映射功能的正确性和功能
 
-use apdl_core::{EnumMappingEntry, FieldMappingEntry, SemanticRule};
+use apdl_core::{EnumMappingEntry, SemanticRule};
 use apdl_poem::dsl::parser::DslParserImpl;
 
 #[test]

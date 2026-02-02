@@ -46,8 +46,8 @@ pub fn parse_nested_sync(params: &str) -> Result<SemanticRule, String> {
     let params = params.trim();
     let mut field_name = String::new();
     let mut target = String::new();
-    let mut algorithm = String::new();
-    let mut description = String::new();
+    let mut _algorithm = String::new();
+    let mut _description = String::new();
 
     if params.contains("field:") && params.contains("target:") && params.contains("algorithm:") {
         if let Some(field_start) = params.find("field:") {
@@ -70,14 +70,14 @@ pub fn parse_nested_sync(params: &str) -> Result<SemanticRule, String> {
         if let Some(alg_start) = params.find("algorithm:") {
             let remaining = &params[alg_start + 10..];
             if let Some(semi_pos) = remaining.find(';').map(|p| p + alg_start + 10) {
-                algorithm = remaining[..semi_pos - (alg_start + 10)].trim().to_string();
+                let _ = remaining[..semi_pos - (alg_start + 10)].trim().to_string();
             } else {
-                algorithm = remaining.trim().to_string();
+                let _ = remaining.trim().to_string();
             }
         }
 
         if let Some(desc_start) = params.find("desc:") {
-            description = params[desc_start + 5..].trim().to_string();
+            let _ = params[desc_start + 5..].trim().to_string();
         }
     }
 

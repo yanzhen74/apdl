@@ -66,7 +66,7 @@ impl FieldUnit {
                 val
             }
             FieldType::Uint8 => {
-                if value.len() < 1 {
+                if value.is_empty() {
                     return Err(ProtocolError::ParseError(
                         "Insufficient data for Uint8".to_string(),
                     ));
@@ -121,8 +121,7 @@ impl FieldUnit {
                     let num_value = bytes_to_u64(value);
                     if num_value < *min || num_value > *max {
                         return Err(ProtocolError::ValidationError(format!(
-                            "Value {} out of range [{}, {}]",
-                            num_value, min, max
+                            "Value {num_value} out of range [{min}, {max}]"
                         )));
                     }
                 }
@@ -130,8 +129,7 @@ impl FieldUnit {
                     let actual = bytes_to_u64(value);
                     if actual != *expected {
                         return Err(ProtocolError::ValidationError(format!(
-                            "Expected fixed value {}, got {}",
-                            expected, actual
+                            "Expected fixed value {expected}, got {actual}"
                         )));
                     }
                 }
@@ -139,8 +137,7 @@ impl FieldUnit {
                     let actual = bytes_to_u64(value);
                     if !enum_values.iter().any(|(_, val)| *val == actual) {
                         return Err(ProtocolError::ValidationError(format!(
-                            "Value {} not in allowed enum values",
-                            actual
+                            "Value {actual} not in allowed enum values"
                         )));
                     }
                 }

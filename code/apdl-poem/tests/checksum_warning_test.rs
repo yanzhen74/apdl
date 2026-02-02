@@ -57,7 +57,7 @@ fn test_checksum_range_with_crc16_mismatch_warning() {
 
     // 组装帧
     let frame = assembler.assemble_frame().expect("帧组装失败");
-    println!("错误配置下组装的帧: {:02X?}", frame);
+    println!("错误配置下组装的帧: {frame:02X?}");
 
     // 验证：由于规则配置错误，这里会产生不一致的校验和计算
     // checksum_range默认使用XOR算法，但由于algorithm规则指定了crc16，系统应优先考虑字段算法声明
@@ -69,11 +69,11 @@ fn test_checksum_range_with_crc16_mismatch_warning() {
     // 检查校验和计算结果 - 这里应该使用CRC16算法（因为algorithm规则明确指定）
     // 但如果我们只看规则名称可能会误以为是XOR算法
     let fecf_bytes = &frame[15..17]; // fecf字段位于帧的最后2个字节
-    println!("实际计算的FECF值 (XOR): {:02X?}", fecf_bytes);
+    println!("实际计算的FECF值 (XOR): {fecf_bytes:02X?}");
 
     // 验证校验和是否正确计算
     let calculated_crc16 = ((fecf_bytes[0] as u16) << 8) | (fecf_bytes[1] as u16);
-    println!("计算的校验和值: 0x{:04X}", calculated_crc16);
+    println!("计算的校验和值: 0x{calculated_crc16:04X}");
 
     // 注意：在这种错误配置下，由于checksum_range默认使用XOR算法，
     // 而algorithm规则指定使用crc16，系统会根据规则处理逻辑决定使用哪种算法
@@ -145,18 +145,18 @@ fn test_correct_crc_range_with_crc16_configuration() {
 
     // 组装帧
     let frame = assembler.assemble_frame().expect("帧组装失败");
-    println!("正确配置下组装的帧: {:02X?}", frame);
+    println!("正确配置下组装的帧: {frame:02X?}");
 
     // 验证帧长度
     assert_eq!(frame.len(), 17, "帧长度应该是17字节");
 
     // 检查校验和计算结果 - 应该使用CRC16算法
     let fecf_bytes = &frame[15..17]; // fecf字段位于帧的最后2个字节
-    println!("正确配置下的FECF值 (CRC16): {:02X?}", fecf_bytes);
+    println!("正确配置下的FECF值 (CRC16): {fecf_bytes:02X?}");
 
     // 验证CRC16校验和是否正确计算
     let calculated_crc16 = ((fecf_bytes[0] as u16) << 8) | (fecf_bytes[1] as u16);
-    println!("计算的CRC16值: 0x{:04X}", calculated_crc16);
+    println!("计算的CRC16值: 0x{calculated_crc16:04X}");
 
     // 验证是否使用了正确的算法 - 从输出可以看到使用的是CRC16算法（值为54071）
     // 这表明crc_range规则正确地使用了CRC16算法
@@ -226,18 +226,18 @@ fn test_checksum_range_with_xor_algorithm_consistency() {
 
     // 组装帧
     let frame = assembler.assemble_frame().expect("帧组装失败");
-    println!("XOR一致性配置下组装的帧: {:02X?}", frame);
+    println!("XOR一致性配置下组装的帧: {frame:02X?}");
 
     // 验证帧长度
     assert_eq!(frame.len(), 17, "帧长度应该是17字节");
 
     // 检查校验和计算结果 - 应该使用XOR算法
     let fecf_bytes = &frame[15..17]; // fecf字段位于帧的最后2个字节
-    println!("XOR一致性配置下的校验和值: {:02X?}", fecf_bytes);
+    println!("XOR一致性配置下的校验和值: {fecf_bytes:02X?}");
 
     // 验证XOR校验和是否正确计算
     let calculated_xor = ((fecf_bytes[0] as u16) << 8) | (fecf_bytes[1] as u16);
-    println!("计算的XOR值: 0x{:04X}", calculated_xor);
+    println!("计算的XOR值: 0x{calculated_xor:04X}");
 
     // XOR校验和的实际值（对于给定数据）
     // 基于日志显示，XOR计算结果是77 (0x4D)

@@ -19,13 +19,11 @@ impl FrameAssembler {
 
         if first_pos > second_pos {
             return Err(ProtocolError::InvalidFrameFormat(format!(
-                "Field order violation: {} should come before {}",
-                first_field, second_field
+                "Field order violation: {first_field} should come before {second_field}"
             )));
         }
         println!(
-            "Applied order rule: {} before {}",
-            first_field, second_field
+            "Applied order rule: {first_field} before {second_field}"
         );
         Ok(())
     }

@@ -9,6 +9,12 @@ pub struct ProtocolUnitManager {
     units: std::collections::HashMap<String, Box<dyn ProtocolUnit>>,
 }
 
+impl Default for ProtocolUnitManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProtocolUnitManager {
     pub fn new() -> Self {
         Self {

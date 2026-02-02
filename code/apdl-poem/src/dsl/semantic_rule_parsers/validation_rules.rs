@@ -47,6 +47,8 @@ pub fn parse_validation(params: &str) -> Result<SemanticRule, String> {
 
         if let Some(desc_start) = params.find("desc:") {
             description = params[desc_start + 5..].trim().to_string();
+            // 移除字符串两端的引号
+            description = description.trim_matches('"').to_string();
         }
     }
 
@@ -85,6 +87,8 @@ pub fn parse_length_validation(params: &str) -> Result<SemanticRule, String> {
 
         if let Some(desc_start) = params.find("desc:") {
             description = params[desc_start + 5..].trim().to_string();
+            // 移除字符串两端的引号
+            description = description.trim_matches('"').to_string();
         }
     }
 
@@ -114,6 +118,8 @@ pub fn parse_error_detection(params: &str) -> Result<SemanticRule, String> {
 
         if let Some(desc_start) = params.find("desc:") {
             description = params[desc_start + 5..].trim().to_string();
+            // 移除字符串两端的引号
+            description = description.trim_matches('"').to_string();
         }
     } else {
         algorithm = params.to_string();

@@ -8,7 +8,13 @@ APDL (APDS Protocol Definition Language)是一个面向航天领域的协议定�
 
 在MVP（最小可行产品）阶段，我们成功实现了以下核心功能：
 
-### 1. CCSDS协议标准语法单元实现
+### 1. 语义规则处理器系统
+
+- **23种语义规则处理器**: 实现了包括校验和、依赖关系、控制规则、流控、冗余、过滤、多路复用等在内的完整规则处理器系统
+- **TODO标记系统**: 在所有规则处理器中添加了 TODO 注释，标记需要在实际应用中实现的功能点
+- **智能规则解析**: 支持多种算法和策略的规则执行
+
+### 2. CCSDS协议标准语法单元实现
 
 - **CCSDS TM (Telemetry) Transfer Frame** (`ccsds_dl`): 实现了CCSDS 132.0-B-3 TM传输帧标准
 - **CCSDS TC (Telecommand) Transfer Frame** (`ccsds_tc`): 实现了CCSDS 232.0-B-3 TC传输帧标准  
@@ -17,20 +23,20 @@ APDL (APDS Protocol Definition Language)是一个面向航天领域的协议定�
 
 每个语法单元都实现了统一的`ProtocolUnit`接口，支持打包、解包、验证等功能。
 
-### 2. DSL (Domain Specific Language) 设计与解析
+### 3. DSL (Domain Specific Language) 设计与解析
 
 - 实现了APDL DSL语法解析器，基于nom库
 - 支持协议字段定义、类型声明、长度描述、作用域定义等功能
 - 支持约束条件、算法描述、关联关系等高级特性
 - 提供了完整的DSL解析和验证功能
 
-### 3. 核心架构设计
+### 4. 核心架构设计
 
 - **协议单元接口** (`ProtocolUnit`): 统一的协议单元接口，实现平台与语法单元的分离
 - **模块化解耦**: 采用清晰的模块划分，便于扩展和维护
 - **错误处理机制**: 完善的错误处理体系，包含协议错误、解析错误等
 
-### 4. 工具函数库
+### 5. 工具函数库
 
 - CRC校验算法实现
 - 位操作工具
@@ -42,7 +48,7 @@ APDL (APDS Protocol Definition Language)是一个面向航天领域的协议定�
 核心库，定义了协议单元接口、元数据结构和基础工具函数。
 
 ### apdl-poem
-协议对象与实体映射模块，实现了具体的协议语法单元和DSL解析器。
+协议对象与实体映射模块，实现了具体的协议语法单元、DSL解析器和语义规则处理器系统。
 
 ## 使用示例
 
@@ -70,6 +76,7 @@ assert_eq!(unpacked_sdu, sdu);
 
 - 协议单元基本功能测试
 - DSL解析器功能测试
+- 语义规则验证测试
 - 打包/解包循环测试
 - 边界条件和错误处理测试
 
@@ -99,6 +106,7 @@ apdl/
 │   ├── standard_units/ # 标准协议语法单元
 │   ├── custom_units/   # 自定义协议语法单元
 │   ├── dsl/           # DSL解析器实现
+│   ├── standard_units/frame_assembler/ # 帧组装器及规则处理器
 │   └── protocol_unit/ # 协议单元接口定义
 ```
 

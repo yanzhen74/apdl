@@ -9,26 +9,25 @@ use apdl_core::{
 
 /// 解析单元类型
 pub fn parse_unit_type(type_str: &str) -> Result<UnitType, String> {
-    if type_str.starts_with("Uint") {
-        let num_str = &type_str[4..];
+    if let Some(num_str) = type_str.strip_prefix("Uint") {
         if let Ok(bits) = num_str.parse::<u8>() {
             Ok(UnitType::Uint(bits))
         } else {
-            Err(format!("Invalid Uint type: {}", type_str))
+            Err(format!("Invalid Uint type: {type_str}"))
         }
     } else if type_str.starts_with("Bit(") && type_str.ends_with(')') {
         let num_str = &type_str[4..type_str.len() - 1];
         if let Ok(bits) = num_str.parse::<u8>() {
             Ok(UnitType::Bit(bits))
         } else {
-            Err(format!("Invalid Bit type: {}", type_str))
+            Err(format!("Invalid Bit type: {type_str}"))
         }
     } else if type_str == "RawData" {
         Ok(UnitType::RawData)
     } else if type_str == "Ip6Addr" {
         Ok(UnitType::Ip6Addr)
     } else {
-        Err(format!("Unknown type: {}", type_str))
+        Err(format!("Unknown type: {type_str}"))
     }
 }
 
@@ -43,7 +42,7 @@ pub fn parse_length_desc(length_str: &str) -> Result<LengthDesc, String> {
                 unit: LengthUnit::Byte,
             })
         } else {
-            Err(format!("Invalid byte length: {}", length_str))
+            Err(format!("Invalid byte length: {length_str}"))
         }
     } else if length_str.ends_with("bit") {
         let num_str = length_str[..length_str.len() - 3].trim();
@@ -53,7 +52,7 @@ pub fn parse_length_desc(length_str: &str) -> Result<LengthDesc, String> {
                 unit: LengthUnit::Bit,
             })
         } else {
-            Err(format!("Invalid bit length: {}", length_str))
+            Err(format!("Invalid bit length: {length_str}"))
         }
     } else if length_str == "dynamic" {
         Ok(LengthDesc {
@@ -91,13 +90,13 @@ pub fn parse_scope_desc(scope_str: &str) -> Result<ScopeDesc, String> {
             let second = layers[pos + 1..].trim();
             Ok(ScopeDesc::CrossLayer(first.to_string(), second.to_string()))
         } else {
-            Err(format!("Invalid cross_layer format: {}", scope_str))
+            Err(format!("Invalid cross_layer format: {scope_str}"))
         }
     } else if scope_str.starts_with("global(") && scope_str.ends_with(')') {
         let scope_name = &scope_str[7..scope_str.len() - 1];
         Ok(ScopeDesc::Global(scope_name.to_string()))
     } else {
-        Err(format!("Invalid scope format: {}", scope_str))
+        Err(format!("Invalid scope format: {scope_str}"))
     }
 }
 
@@ -139,11 +138,11 @@ pub fn parse_constraint(constraint_str: &str) -> Result<Constraint, String> {
         // 尝试解析十进制或十六进制值
         let value = if value_str.starts_with("0x") || value_str.starts_with("0X") {
             u64::from_str_radix(&value_str[2..], 16)
-                .map_err(|_| format!("Invalid hex value: {}", value_str))?
+                .map_err(|_| format!("Invalid hex value: {value_str}"))?
         } else {
             value_str
                 .parse::<u64>()
-                .map_err(|_| format!("Invalid decimal value: {}", value_str))?
+                .map_err(|_| format!("Invalid decimal value: {value_str}"))?
         };
         Ok(Constraint::FixedValue(value))
     } else if constraint_str.starts_with("range(") && constraint_str.ends_with(')') {
@@ -155,21 +154,21 @@ pub fn parse_constraint(constraint_str: &str) -> Result<Constraint, String> {
             // 解析起始值
             let start = if start_str.starts_with("0x") || start_str.starts_with("0X") {
                 u64::from_str_radix(&start_str[2..], 16)
-                    .map_err(|_| format!("Invalid hex start value: {}", start_str))?
+                    .map_err(|_| format!("Invalid hex start value: {start_str}"))?
             } else {
                 start_str
                     .parse::<u64>()
-                    .map_err(|_| format!("Invalid decimal start value: {}", start_str))?
+                    .map_err(|_| format!("Invalid decimal start value: {start_str}"))?
             };
 
             // 解析结束值
             let end = if end_str.starts_with("0x") || end_str.starts_with("0X") {
                 u64::from_str_radix(&end_str[2..], 16)
-                    .map_err(|_| format!("Invalid hex end value: {}", end_str))?
+                    .map_err(|_| format!("Invalid hex end value: {end_str}"))?
             } else {
                 end_str
                     .parse::<u64>()
-                    .map_err(|_| format!("Invalid decimal end value: {}", end_str))?
+                    .map_err(|_| format!("Invalid decimal end value: {end_str}"))?
             };
 
             Ok(Constraint::Range(start, end))
@@ -185,11 +184,11 @@ pub fn parse_constraint(constraint_str: &str) -> Result<Constraint, String> {
                 let value_str = pair_parts[1].trim();
                 let value = if value_str.starts_with("0x") || value_str.starts_with("0X") {
                     u64::from_str_radix(&value_str[2..], 16)
-                        .map_err(|_| format!("Invalid hex enum value: {}", value_str))?
+                        .map_err(|_| format!("Invalid hex enum value: {value_str}"))?
                 } else {
                     value_str
                         .parse::<u64>()
-                        .map_err(|_| format!("Invalid decimal enum value: {}", value_str))?
+                        .map_err(|_| format!("Invalid decimal enum value: {value_str}"))?
                 };
                 enums.push((pair_parts[0].trim().to_string(), value));
             } else {
@@ -221,6 +220,6 @@ pub fn parse_checksum_algorithm(alg_str: &str) -> Result<ChecksumAlgorithm, Stri
         "CRC32" => Ok(ChecksumAlgorithm::CRC32),
         "CRC15" => Ok(ChecksumAlgorithm::CRC15),
         "XOR" => Ok(ChecksumAlgorithm::XOR),
-        _ => Err(format!("Unknown checksum algorithm: {}", alg_str)),
+        _ => Err(format!("Unknown checksum algorithm: {alg_str}")),
     }
 }

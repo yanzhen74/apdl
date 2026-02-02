@@ -65,7 +65,7 @@ fn test_ccsds_crc16_checksum_calculation() {
 
     // 组装帧
     let frame = assembler.assemble_frame().expect("帧组装失败");
-    println!("组装的帧: {:02X?}", frame);
+    println!("组装的帧: {frame:02X?}");
 
     // 帧应该为18字节: [EB, 90, 00, 00, 00, 01, 00, 00, 00, 00, 0x00, 0x08, CA, FE, BA, BE, 05, FC]
     assert_eq!(frame.len(), 18, "帧长度应该是18字节");
@@ -87,9 +87,9 @@ fn test_ccsds_crc16_checksum_calculation() {
     // 获取帧中存储的CRC值（最后2个字节）
     let stored_checksum = [frame[frame.len() - 2], frame[frame.len() - 1]];
 
-    println!("待校验数据: {:02X?}", data_to_check);
-    println!("计算出的CRC16校验和: {:02X?}", calculated_checksum);
-    println!("存储的CRC16校验和: {:02X?}", stored_checksum);
+    println!("待校验数据: {data_to_check:02X?}");
+    println!("计算出的CRC16校验和: {calculated_checksum:02X?}");
+    println!("存储的CRC16校验和: {stored_checksum:02X?}");
 
     // 验证计算出的校验和与存储的校验和匹配
     assert_eq!(
@@ -103,10 +103,7 @@ fn test_ccsds_crc16_checksum_calculation() {
 
     println!("✓ CRC16校验和计算验证通过！");
     println!("  - 待校验数据长度: {} 字节", data_to_check.len());
-    println!(
-        "  - 计算出的CRC16校验和: 0x{:04X} ({})",
-        checksum_value, checksum_value
-    );
+    println!("  - 计算出的CRC16校验和: 0x{checksum_value:04X} ({checksum_value})");
     println!("  - CRC16校验通过: 数据完整性得到验证");
 }
 
@@ -127,6 +124,7 @@ fn calculate_crc16_checksum(data: &[u8]) -> [u8; 2] {
 }
 
 // 计算XOR校验和（逐字节异或）
+#[allow(dead_code)]
 fn calculate_xor_checksum(data: &[u8]) -> [u8; 2] {
     let mut xor_sum: u16 = 0;
 
@@ -159,8 +157,8 @@ fn test_xor_checksum_manual_calculation() {
     ];
     let calculated = calculate_cumulative_xor(&data);
     println!("手动计算XOR校验和测试:");
-    println!("输入数据: {:02X?}", data);
-    println!("计算结果: {:02X?}", calculated);
+    println!("输入数据: {data:02X?}");
+    println!("计算结果: {calculated:02X?}");
 
     // 验证计算结果是否为 [0x00, 0x42] (66的十六进制)
     assert_eq!(calculated, [0x00, 0x42]);

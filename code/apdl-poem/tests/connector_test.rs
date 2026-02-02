@@ -50,7 +50,7 @@ fn test_field_mapping_rule_parsing() {
 
 #[test]
 fn test_connector_engine_basic_functionality() {
-    use apdl_core::{EnumMappingEntry, FieldMappingEntry};
+    use apdl_core::EnumMappingEntry;
     use apdl_poem::standard_units::connector::{ConnectorEngine, FieldMapper};
 
     // 创建连接器引擎
@@ -111,7 +111,7 @@ fn test_connector_engine_basic_functionality() {
 
 #[test]
 fn test_complete_connector_workflow() {
-    use apdl_poem::standard_units::connector::{ConnectorEngine, FieldMapper};
+    use apdl_poem::standard_units::connector::ConnectorEngine;
 
     // 创建源包和目标包的语法单元定义
     let source_package = vec![

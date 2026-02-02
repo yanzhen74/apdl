@@ -3,8 +3,8 @@
 //! 包含 FrameAssembler 结构体定义和基础功能方法
 
 use apdl_core::{
-    AlgorithmAst, ChecksumAlgorithm, LengthDesc, LengthUnit, ProtocolError, SemanticRule,
-    SyntaxUnit, UnitType,
+    LengthUnit, ProtocolError, SemanticRule,
+    SyntaxUnit,
 };
 use std::collections::HashMap;
 
@@ -15,6 +15,12 @@ pub struct FrameAssembler {
     pub field_index: HashMap<String, usize>,
     // 添加字段值存储
     pub field_values: HashMap<String, Vec<u8>>,
+}
+
+impl Default for FrameAssembler {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FrameAssembler {
@@ -106,18 +112,16 @@ impl FrameAssembler {
                 // 存储字段值
                 self.field_values
                     .insert(clean_field_name.to_string(), value.to_vec());
-                println!("Setting field {} to value: {:?}", clean_field_name, value);
+                println!("Setting field {clean_field_name} to value: {value:?}");
                 Ok(())
             } else {
                 Err(ProtocolError::FieldNotFound(format!(
-                    "Field not found: {}",
-                    clean_field_name
+                    "Field not found: {clean_field_name}"
                 )))
             }
         } else {
             Err(ProtocolError::FieldNotFound(format!(
-                "Field not found: {}",
-                clean_field_name
+                "Field not found: {clean_field_name}"
             )))
         }
     }
@@ -129,7 +133,7 @@ impl FrameAssembler {
             .get(clean_field_name)
             .cloned()
             .ok_or_else(|| {
-                ProtocolError::FieldNotFound(format!("Field value not found: {}", clean_field_name))
+                ProtocolError::FieldNotFound(format!("Field value not found: {clean_field_name}"))
             })
     }
 
@@ -146,14 +150,12 @@ impl FrameAssembler {
                     Ok(vec![0; size])
                 } else {
                     Err(ProtocolError::FieldNotFound(format!(
-                        "Field definition not found: {}",
-                        clean_field_name
+                        "Field definition not found: {clean_field_name}"
                     )))
                 }
             } else {
                 Err(ProtocolError::FieldNotFound(format!(
-                    "Field not found: {}",
-                    clean_field_name
+                    "Field not found: {clean_field_name}"
                 )))
             }
         }
@@ -162,7 +164,7 @@ impl FrameAssembler {
     /// 获取字段大小
     pub fn get_field_size(&self, field: &SyntaxUnit) -> Result<usize, ProtocolError> {
         match field.length.unit {
-            LengthUnit::Bit => Ok((field.length.size + 7) / 8), // 向上取整到字节
+            LengthUnit::Bit => Ok(field.length.size.div_ceil(8)), // 向上取整到字节
             LengthUnit::Byte => Ok(field.length.size),
             LengthUnit::Dynamic => {
                 // 对于动态长度字段，尝试从已存储的值中获取大小
@@ -189,14 +191,12 @@ impl FrameAssembler {
                 self.get_field_size(field)
             } else {
                 Err(ProtocolError::FieldNotFound(format!(
-                    "Field definition not found: {}",
-                    clean_field_name
+                    "Field definition not found: {clean_field_name}"
                 )))
             }
         } else {
             Err(ProtocolError::FieldNotFound(format!(
-                "Field not found: {}",
-                clean_field_name
+                "Field not found: {clean_field_name}"
             )))
         }
     }
@@ -208,8 +208,7 @@ impl FrameAssembler {
             self.calculate_field_offset(index)
         } else {
             Err(ProtocolError::FieldNotFound(format!(
-                "Field not found: {}",
-                clean_field_name
+                "Field not found: {clean_field_name}"
             )))
         }
     }
@@ -252,5 +251,67 @@ impl FrameAssembler {
             ));
         }
         Ok(true)
+    }
+}
+
+impl FrameAssembler {
+    /// 将字节数组转换为u64
+    pub fn bytes_to_u64(&self, bytes: &[u8]) -> u64 {
+        crate::standard_units::frame_assembler::utils::bytes_to_u64(bytes)
+    }
+
+    /// 判断是否为数据字段
+    pub fn is_data_field(&self, field: &SyntaxUnit) -> bool {
+        crate::standard_units::frame_assembler::utils::is_data_field(field)
+    }
+
+    /// 判断是否为头部字段
+    pub fn is_header_field(&self, field: &SyntaxUnit) -> bool {
+        crate::standard_units::frame_assembler::utils::is_header_field(field)
+    }
+
+    /// 通配符匹配实现
+    pub fn wildcard_match(&self, text: &str, pattern: &str) -> bool {
+        crate::standard_units::frame_assembler::utils::wildcard_match(text, pattern)
+    }
+
+    /// 计算数据的哈希值
+    pub fn calculate_hash(&self, data: &[u8]) -> u64 {
+        crate::standard_units::frame_assembler::utils::calculate_hash(data)
+    }
+
+    /// 计算CRC16校验和
+    pub fn calculate_crc16(&self, data: &[u8]) -> u16 {
+        crate::standard_units::frame_assembler::utils::calculate_crc16(data)
+    }
+
+    /// 计算简单校验和
+    pub fn calculate_simple_checksum(&self, data: &[u8]) -> u16 {
+        crate::standard_units::frame_assembler::utils::calculate_simple_checksum(data)
+    }
+
+    /// 计算XOR校验和
+    pub fn calculate_xor(&self, data: &[u8]) -> u16 {
+        crate::standard_units::frame_assembler::utils::calculate_xor(data)
+    }
+
+    /// 计算CRC15校验和 (CAN协议专用)
+    pub fn calculate_crc15(&self, data: &[u8]) -> u16 {
+        // CAN协议使用的CRC15算法
+        let mut crc: u16 = 0x0000;
+        for &byte in data {
+            for i in 0..8 {
+                let mut bit = (byte >> (7 - i)) & 0x01;
+                if (crc & 0x4000) != 0 {
+                    bit ^= 1;
+                }
+                crc <<= 1;
+                if bit != 0 {
+                    crc ^= 0x0599;
+                }
+            }
+        }
+        crc &= 0x7FFF; // 保留低15位
+        crc
     }
 }
