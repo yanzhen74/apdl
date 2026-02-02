@@ -1,0 +1,116 @@
+# APDL 项目上下文文档
+
+## 项目概览
+
+APDL (APDS Protocol Definition Language) 是一个面向航天领域的协议定义与仿真验证一体化平台。本项目提供标准化的协议定义、仿真验证和性能分析工具，满足航天领域复杂协议开发的需求。
+
+## 当前状态
+
+### 项目结构
+- **工作区根目录**: `d:\user\yqd\project\apdl`
+- **代码目录**: `d:\user\yqd\project\apdl\code`
+- **核心模块**:
+  - `apdl-core`: 核心抽象和数据结构
+  - `apdl-poem`: 协议对象与实体映射（主要开发模块）
+  - `apdl-iam`: 交互访问模块
+  - `apdl-dpe`: 数据处理引擎
+  - `apdl-lsk`: 仿真与验证工具包
+  - `apdl-pvpae`: 协议验证与性能分析引擎
+  - `apdl-sak`: 安全认证工具包
+  - `apdl-app`: 应用层
+
+### 当前实现情况
+
+#### 1. 基础 DSL 语法
+- **字段定义**: 支持 `field`, `type`, `length`, `scope`, `cover` 等基础语法
+- **类型系统**: 支持 `Uint8/16/32/64`, `Bit(n)`, `RawData` 等类型
+- **长度描述**: 支持固定长度、动态长度、表达式长度
+- **作用域**: 支持 `layer`, `cross_layer`, `global` 等作用域
+
+#### 2. 语义规则系统
+- **已实现规则**: 23 种语义规则，包括：
+  - 校验和范围规则 (`checksum_range`)
+  - 依赖关系规则 (`dependency`)
+  - 条件规则 (`conditional`)
+  - 顺序规则 (`order`)
+  - 指针规则 (`pointer`)
+  - 算法规则 (`algorithm`)
+  - 长度规则 (`length_rule`)
+  - 路由分发规则 (`routing_dispatch`)
+  - 序列控制规则 (`sequence_control`)
+  - 验证规则 (`validation`)
+  - 多路复用规则 (`multiplexing`)
+  - 优先级处理规则 (`priority_processing`)
+  - 同步规则 (`synchronization`)
+  - 长度验证规则 (`length_validation`)
+  - 状态机规则 (`state_machine`)
+  - 周期性传输规则 (`periodic_transmission`)
+  - 消息过滤规则 (`message_filtering`)
+  - 错误检测规则 (`error_detection`)
+  - 嵌套同步规则 (`nested_sync`)
+  - 序列重置规则 (`sequence_reset`)
+  - 时间戳插入规则 (`timestamp_insertion`)
+  - 流量控制规则 (`flow_control`)
+  - 时间同步规则 (`time_synchronization`)
+  - 地址解析规则 (`address_resolution`)
+  - 安全规则 (`security`)
+  - 冗余规则 (`redundancy`)
+  - **字段映射规则** (`field_mapping`)
+
+#### 3. 解析器架构
+- **模块化设计**: 基于 nom 库的模块化解析器架构
+- **语义规则解析器**: `semantic_rule_parsers` 模块
+- **字段映射解析器**: `field_mapping_parser` 模块
+- **DSL 解析器**: `dsl_parser` 模块
+
+#### 4. Frame Assembler 系统
+- **23 个规则处理器**: 每个语义规则对应一个处理器
+- **TODO 标记系统**: 在所有规则处理器中添加了 TODO 注释
+- **DSL 前缀支持**: 支持 `start:`, `field:`, `first:` 等前缀
+
+## 当前计划文档
+
+### 已完成文档
+- `APDL_LAYER_CONNECTOR_DESIGN.md`: 分层与连接器 DSL 设计文档
+- `APDL_LAYER_CONNECTOR_DESIGN_UPDATED.md`: 基于当前实现现状的更新版设计文档
+- `APDL_LAYER_CONNECTOR_DEV_PLAN.md`: 详细的开发计划
+- `APDL_LAYER_CONNECTOR_DEV_CURRENT.md`: 基于当前实现现状的开发计划
+
+### 计划功能（待实现）
+- **包定义语法**: `package` 语法支持多层协议定义
+- **连接器定义语法**: `connector` 语法支持包间映射
+- **协议栈定义语法**: `protocol_stack` 语法支持多层协议栈
+- **导头指针处理**: 支持数据区子包恢复机制
+- **并列包处理**: 支持同一层内的并列包结构
+
+## 技术栈
+
+- **编程语言**: Rust
+- **解析器库**: nom 7.1
+- **UI 框架**: egui/eframe (用于 apdl-iam)
+- **模块化架构**: 清晰的依赖关系和接口定义
+- **错误处理**: 自定义错误类型系统
+
+## MVP 阶段成果
+
+### 已实现功能
+- CCSDS 协议标准语法单元实现
+- DSL (Domain Specific Language) 设计与解析
+- 核心架构设计
+- 语义规则处理器系统
+- 23 种语义规则处理器
+- TODO 标记系统
+- DSL 解析器增强
+
+### 下一阶段目标
+- 实现分层与连接器 DSL 功能
+- 完成包定义、连接器定义、协议栈定义功能
+- 实现导头指针处理机制
+- 完成数据区子包恢复功能
+
+## 项目特色
+
+- **分层平等建模原则**: 每层都是语义完整、无隶属关系的自治单元
+- **DSL 自治性**: 不依赖硬编码的帧实现文件，完全由 DSL 自动完成组帧逻辑
+- **模块化设计**: 清晰的职责分离和接口定义
+- **扩展性**: 易于添加新的语义规则和协议类型
