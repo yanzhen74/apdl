@@ -306,8 +306,122 @@ pub enum ChecksumAlgorithm {
     XOR,
 }
 
+/// 层定义结构
+#[derive(Debug, Clone, PartialEq)]
+pub struct LayerDefinition {
+    pub name: String,
+    pub units: Vec<SyntaxUnit>,
+    pub rules: Vec<SemanticRule>,
+}
+
+/// 包定义结构
+#[derive(Debug, Clone, PartialEq)]
+pub struct PackageDefinition {
+    pub name: String,
+    pub display_name: String,
+    pub package_type: String, // telemetry, command, encapsulating, etc.
+    pub layers: Vec<LayerDefinition>,
+    pub description: String,
+}
+
+/// 连接器配置结构
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConnectorConfig {
+    pub mappings: Vec<FieldMappingEntry>,
+    pub header_pointers: Option<HeaderPointerConfig>,
+}
+
+/// 导头指针配置结构
+#[derive(Debug, Clone, PartialEq)]
+pub struct HeaderPointerConfig {
+    pub master_pointer: String,
+    pub secondary_pointers: Vec<String>,
+    pub descriptor_field: String,
+}
+
+/// 连接器定义结构
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConnectorDefinition {
+    pub name: String,
+    pub connector_type: String, // field_mapping, header_pointer, etc.
+    pub source_package: String,
+    pub target_package: String,
+    pub config: ConnectorConfig,
+    pub description: String,
+}
+
+/// 并列包组结构
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParallelPackageGroup {
+    pub name: String,
+    pub packages: Vec<String>,
+    pub algorithm: String,
+    pub priority: u32,
+}
+
+/// 协议栈定义结构
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProtocolStackDefinition {
+    pub name: String,
+    pub packages: Vec<String>,
+    pub connectors: Vec<String>,
+    pub parallel_groups: Vec<ParallelPackageGroup>,
+    pub description: String,
+}
+
 /// DSL解析器接口
 pub trait DslParser {
     fn parse_dsl(&self, dsl_text: &str) -> Result<SyntaxUnit, DslParseError>;
     fn validate_dsl(&self, dsl_text: &str) -> Result<(), DslValidateError>;
+}
+
+impl PackageDefinition {
+    pub fn new(
+        name: String,
+        display_name: String,
+        package_type: String,
+        description: String,
+    ) -> Self {
+        Self {
+            name,
+            display_name,
+            package_type,
+            layers: Vec::new(),
+            description,
+        }
+    }
+}
+
+impl ConnectorDefinition {
+    pub fn new(
+        name: String,
+        connector_type: String,
+        source_package: String,
+        target_package: String,
+        description: String,
+    ) -> Self {
+        Self {
+            name,
+            connector_type,
+            source_package,
+            target_package,
+            config: ConnectorConfig {
+                mappings: Vec::new(),
+                header_pointers: None,
+            },
+            description,
+        }
+    }
+}
+
+impl ProtocolStackDefinition {
+    pub fn new(name: String, description: String) -> Self {
+        Self {
+            name,
+            packages: Vec::new(),
+            connectors: Vec::new(),
+            parallel_groups: Vec::new(),
+            description,
+        }
+    }
 }

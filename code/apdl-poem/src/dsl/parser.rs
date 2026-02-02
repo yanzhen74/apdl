@@ -6,6 +6,10 @@ use apdl_core::{CoverDesc, LengthDesc, SemanticRule, SyntaxUnit, UnitType};
 
 // 导入其他模块的函数
 use crate::dsl::field_mapping_parser::FieldMappingParser;
+use crate::dsl::layers::{
+    connector_parser::ConnectorParser, package_parser::PackageParser,
+    protocol_stack_parser::ProtocolStackParser,
+};
 use crate::dsl::parser_utils::*;
 use crate::dsl::semantic_rule_parsers::SemanticRuleParsers;
 
@@ -76,6 +80,180 @@ impl DslParserImpl {
         }
 
         Ok(rules)
+    }
+
+    /// 解析包定义
+    pub fn parse_package_definitions(
+        &self,
+        input: &str,
+    ) -> Result<Vec<apdl_core::PackageDefinition>, String> {
+        let mut packages = Vec::new();
+
+        // 查找包定义
+        let mut lines = input.lines().peekable();
+
+        while let Some(line) = lines.next() {
+            let trimmed_line = line.trim();
+            if !trimmed_line.is_empty() && !trimmed_line.starts_with("//") {
+                if trimmed_line.starts_with("package ") {
+                    // 找到包定义的开始，收集直到找到匹配的右花括号
+                    let mut package_def = String::from(trimmed_line);
+                    let mut brace_count = 0;
+
+                    // 计算当前行的左花括号数量
+                    for c in trimmed_line.chars() {
+                        if c == '{' {
+                            brace_count += 1;
+                        } else if c == '}' {
+                            brace_count -= 1;
+                        }
+                    }
+
+                    // 继续收集行直到括号平衡
+                    while brace_count > 0 {
+                        if let Some(next_line) = lines.next() {
+                            let next_trimmed = next_line.trim();
+                            package_def.push_str(" ");
+                            package_def.push_str(next_trimmed);
+
+                            for c in next_trimmed.chars() {
+                                if c == '{' {
+                                    brace_count += 1;
+                                } else if c == '}' {
+                                    brace_count -= 1;
+                                }
+                            }
+                        } else {
+                            return Err("Unmatched braces in package definition".to_string());
+                        }
+                    }
+
+                    // 解析包定义
+                    match PackageParser::parse_package_definition(&package_def) {
+                        Ok(pkg) => packages.push(pkg),
+                        Err(e) => return Err(format!("Package parse error: {e}")),
+                    }
+                }
+            }
+        }
+
+        Ok(packages)
+    }
+
+    /// 解析连接器定义
+    pub fn parse_connector_definitions(
+        &self,
+        input: &str,
+    ) -> Result<Vec<apdl_core::ConnectorDefinition>, String> {
+        let mut connectors = Vec::new();
+
+        // 查找连接器定义
+        let mut lines = input.lines().peekable();
+
+        while let Some(line) = lines.next() {
+            let trimmed_line = line.trim();
+            if !trimmed_line.is_empty() && !trimmed_line.starts_with("//") {
+                if trimmed_line.starts_with("connector ") {
+                    // 找到连接器定义的开始，收集直到找到匹配的右花括号
+                    let mut connector_def = String::from(trimmed_line);
+                    let mut brace_count = 0;
+
+                    // 计算当前行的左花括号数量
+                    for c in trimmed_line.chars() {
+                        if c == '{' {
+                            brace_count += 1;
+                        } else if c == '}' {
+                            brace_count -= 1;
+                        }
+                    }
+
+                    // 继续收集行直到括号平衡
+                    while brace_count > 0 {
+                        if let Some(next_line) = lines.next() {
+                            let next_trimmed = next_line.trim();
+                            connector_def.push_str(" ");
+                            connector_def.push_str(next_trimmed);
+
+                            for c in next_trimmed.chars() {
+                                if c == '{' {
+                                    brace_count += 1;
+                                } else if c == '}' {
+                                    brace_count -= 1;
+                                }
+                            }
+                        } else {
+                            return Err("Unmatched braces in connector definition".to_string());
+                        }
+                    }
+
+                    // 解析连接器定义
+                    match ConnectorParser::parse_connector_definition(&connector_def) {
+                        Ok(conn) => connectors.push(conn),
+                        Err(e) => return Err(format!("Connector parse error: {e}")),
+                    }
+                }
+            }
+        }
+
+        Ok(connectors)
+    }
+
+    /// 解析协议栈定义
+    pub fn parse_protocol_stack_definitions(
+        &self,
+        input: &str,
+    ) -> Result<Vec<apdl_core::ProtocolStackDefinition>, String> {
+        let mut stacks = Vec::new();
+
+        // 查找协议栈定义
+        let mut lines = input.lines().peekable();
+
+        while let Some(line) = lines.next() {
+            let trimmed_line = line.trim();
+            if !trimmed_line.is_empty() && !trimmed_line.starts_with("//") {
+                if trimmed_line.starts_with("protocol_stack ") {
+                    // 找到协议栈定义的开始，收集直到找到匹配的右花括号
+                    let mut stack_def = String::from(trimmed_line);
+                    let mut brace_count = 0;
+
+                    // 计算当前行的左花括号数量
+                    for c in trimmed_line.chars() {
+                        if c == '{' {
+                            brace_count += 1;
+                        } else if c == '}' {
+                            brace_count -= 1;
+                        }
+                    }
+
+                    // 继续收集行直到括号平衡
+                    while brace_count > 0 {
+                        if let Some(next_line) = lines.next() {
+                            let next_trimmed = next_line.trim();
+                            stack_def.push_str(" ");
+                            stack_def.push_str(next_trimmed);
+
+                            for c in next_trimmed.chars() {
+                                if c == '{' {
+                                    brace_count += 1;
+                                } else if c == '}' {
+                                    brace_count -= 1;
+                                }
+                            }
+                        } else {
+                            return Err("Unmatched braces in protocol stack definition".to_string());
+                        }
+                    }
+
+                    // 解析协议栈定义
+                    match ProtocolStackParser::parse_protocol_stack_definition(&stack_def) {
+                        Ok(stack) => stacks.push(stack),
+                        Err(e) => return Err(format!("Protocol stack parse error: {e}")),
+                    }
+                }
+            }
+        }
+
+        Ok(stacks)
     }
 
     fn parse_syntax_unit_internal(input: &str) -> Result<SyntaxUnit, String> {
