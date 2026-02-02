@@ -42,6 +42,7 @@ fn test_field_mapping_rule_parsing() {
         assert_eq!(mapping.target_field, "vcid");
         assert_eq!(mapping.mapping_logic, "hash_mod_64");
         assert_eq!(mapping.default_value, "0");
+        assert!(mapping.enum_mappings.is_none());
     } else {
         panic!("Expected FieldMapping rule");
     }
@@ -49,10 +50,11 @@ fn test_field_mapping_rule_parsing() {
 
 #[test]
 fn test_connector_engine_basic_functionality() {
+    use apdl_core::{EnumMappingEntry, FieldMappingEntry};
     use apdl_poem::standard_units::connector::{ConnectorEngine, FieldMapper};
 
     // 创建连接器引擎
-    let mut engine = ConnectorEngine::new();
+    let _engine = ConnectorEngine::new();
 
     // 创建字段映射器
     let mapper = FieldMapper::new();
@@ -68,6 +70,43 @@ fn test_connector_engine_basic_functionality() {
     let result = mapper.map_field(&input, "hash_mod_64").unwrap();
     assert_eq!(result.len(), 1);
     assert!(result[0] < 64);
+
+    // 测试枚举映射功能
+    let enum_mappings = vec![
+        EnumMappingEntry {
+            source_enum: "data_type_a".to_string(),
+            target_enum: "vcid_0".to_string(),
+        },
+        EnumMappingEntry {
+            source_enum: "data_type_b".to_string(),
+            target_enum: "vcid_1".to_string(),
+        },
+        EnumMappingEntry {
+            source_enum: "*".to_string(), // 通配符匹配
+            target_enum: "default_vcid".to_string(),
+        },
+    ];
+
+    let result = mapper.map_enum("data_type_a", Some(&enum_mappings));
+    assert_eq!(result, Some("vcid_0".to_string()));
+
+    let result = mapper.map_enum("data_type_b", Some(&enum_mappings));
+    assert_eq!(result, Some("vcid_1".to_string()));
+
+    let result = mapper.map_enum("other_type", Some(&enum_mappings));
+    assert_eq!(result, Some("default_vcid".to_string()));
+
+    // 测试通配符匹配
+    let wildcard_mappings = vec![EnumMappingEntry {
+        source_enum: "type_*".to_string(), // 通配符模式
+        target_enum: "general_type".to_string(),
+    }];
+
+    let result = mapper.map_enum("type_123", Some(&wildcard_mappings));
+    assert_eq!(result, Some("general_type".to_string()));
+
+    let result = mapper.map_enum("type_data", Some(&wildcard_mappings));
+    assert_eq!(result, Some("general_type".to_string()));
 }
 
 #[test]
@@ -147,12 +186,14 @@ fn test_complete_connector_workflow() {
                 target_field: "vcid".to_string(),
                 mapping_logic: "hash_mod_64".to_string(),
                 default_value: "0".to_string(),
+                enum_mappings: None,
             },
             FieldMappingEntry {
                 source_field: "src_id".to_string(),
                 target_field: "apid".to_string(),
                 mapping_logic: "hash_mod_2048".to_string(),
                 default_value: "0".to_string(),
+                enum_mappings: None,
             },
         ],
         description: "Map telemetry source to VCID and APID".to_string(),

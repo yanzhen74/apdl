@@ -88,6 +88,72 @@ impl FieldMapper {
         }
     }
 
+    /// 执行枚举映射
+    pub fn map_enum(
+        &self,
+        source_value: &str,
+        enum_mappings: Option<&Vec<apdl_core::EnumMappingEntry>>,
+    ) -> Option<String> {
+        if let Some(mappings) = enum_mappings {
+            for mapping in mappings {
+                if Self::matches_enum_pattern(source_value, &mapping.source_enum) {
+                    return Some(mapping.target_enum.clone());
+                }
+            }
+        }
+        None
+    }
+
+    /// 检查源枚举值是否匹配模式（支持通配符）
+    fn matches_enum_pattern(source_value: &str, pattern: &str) -> bool {
+        // 如果模式是通配符，直接返回true
+        if pattern == "*" || pattern == "any" {
+            return true;
+        }
+
+        // 如果模式包含通配符字符
+        if pattern.contains('*') || pattern.contains('?') {
+            // 简单的通配符匹配实现
+            Self::wildcard_match(source_value, pattern)
+        } else {
+            // 精确匹配
+            source_value == pattern
+        }
+    }
+
+    /// 通配符匹配实现
+    fn wildcard_match(text: &str, pattern: &str) -> bool {
+        let text_chars: Vec<char> = text.chars().collect();
+        let pattern_chars: Vec<char> = pattern.chars().collect();
+        let text_len = text_chars.len();
+        let pattern_len = pattern_chars.len();
+
+        // 使用动态规划实现通配符匹配
+        let mut dp = vec![vec![false; pattern_len + 1]; text_len + 1];
+        dp[0][0] = true;
+
+        // 处理以*开头的情况
+        for j in 1..=pattern_len {
+            if pattern_chars[j - 1] == '*' {
+                dp[0][j] = dp[0][j - 1];
+            }
+        }
+
+        for i in 1..=text_len {
+            for j in 1..=pattern_len {
+                if pattern_chars[j - 1] == '*' {
+                    // *可以匹配任意长度的字符串
+                    dp[i][j] = dp[i][j - 1] || dp[i - 1][j];
+                } else if pattern_chars[j - 1] == '?' || text_chars[i - 1] == pattern_chars[j - 1] {
+                    // ?匹配任意单个字符
+                    dp[i][j] = dp[i - 1][j - 1];
+                }
+            }
+        }
+
+        dp[text_len][pattern_len]
+    }
+
     /// 批量映射字段
     pub fn batch_map_fields(
         &self,

@@ -127,6 +127,13 @@ pub enum AlgorithmAst {
     Custom(String),
 }
 
+/// 枚举映射条目
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnumMappingEntry {
+    pub source_enum: String, // 源枚举值，可以包含通配符
+    pub target_enum: String, // 目标枚举值
+}
+
 /// 字段映射条目
 #[derive(Debug, Clone, PartialEq)]
 pub struct FieldMappingEntry {
@@ -134,6 +141,7 @@ pub struct FieldMappingEntry {
     pub target_field: String,
     pub mapping_logic: String, // 映射逻辑，如 "hash(x) % 64"
     pub default_value: String, // 默认值
+    pub enum_mappings: Option<Vec<EnumMappingEntry>>, // 可选的枚举映射列表
 }
 
 /// DSL解析错误

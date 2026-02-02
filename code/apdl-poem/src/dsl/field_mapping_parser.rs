@@ -97,9 +97,60 @@ impl FieldMappingParser {
                 let mut target_field = String::new();
                 let mut mapping_logic = String::new();
                 let mut default_value = String::new();
+                let mut enum_mappings_str = String::new();
 
-                for pair in content.split(",").map(|s| s.trim()) {
-                    let kv: Vec<&str> = pair.splitn(2, ':').map(|s| s.trim()).collect();
+                // 解析映射对象中的字段，需要考虑嵌套结构
+                let mut pairs = Vec::new();
+                let mut current_pair = String::new();
+                let mut brace_depth = 0;
+                let mut bracket_depth = 0;
+                let mut in_quotes = false;
+                let mut quote_char = '"';
+
+                for c in content.chars() {
+                    match c {
+                        '"' | '\'' => {
+                            if !in_quotes {
+                                in_quotes = true;
+                                quote_char = c;
+                            } else if c == quote_char {
+                                in_quotes = false;
+                            }
+                            current_pair.push(c);
+                        }
+                        '{' if !in_quotes => {
+                            brace_depth += 1;
+                            current_pair.push(c);
+                        }
+                        '}' if !in_quotes => {
+                            brace_depth -= 1;
+                            current_pair.push(c);
+                        }
+                        '[' if !in_quotes => {
+                            bracket_depth += 1;
+                            current_pair.push(c);
+                        }
+                        ']' if !in_quotes => {
+                            bracket_depth -= 1;
+                            current_pair.push(c);
+                        }
+                        ',' if !in_quotes && brace_depth == 0 && bracket_depth == 0 => {
+                            pairs.push(current_pair.clone());
+                            current_pair.clear();
+                        }
+                        _ => {
+                            current_pair.push(c);
+                        }
+                    }
+                }
+
+                if !current_pair.is_empty() {
+                    pairs.push(current_pair);
+                }
+
+                for pair_str in pairs {
+                    let pair_str = pair_str.trim();
+                    let kv: Vec<&str> = pair_str.splitn(2, ':').map(|s| s.trim()).collect();
                     if kv.len() == 2 {
                         let key = kv[0].trim().trim_matches(|c| c == '"');
                         let value = kv[1]
@@ -112,17 +163,26 @@ impl FieldMappingParser {
                             "target_field" => target_field = value.to_string(),
                             "mapping_logic" => mapping_logic = value.to_string(),
                             "default_value" => default_value = value.to_string(),
+                            "enum_mappings" => enum_mappings_str = value.to_string(),
                             _ => {}
                         }
                     }
                 }
 
                 if !source_field.is_empty() && !target_field.is_empty() {
+                    // 解析枚举映射
+                    let enum_mappings = if !enum_mappings_str.is_empty() {
+                        Some(Self::parse_enum_mappings(&enum_mappings_str)?)
+                    } else {
+                        None
+                    };
+
                     mappings.push(apdl_core::FieldMappingEntry {
                         source_field,
                         target_field,
                         mapping_logic,
                         default_value,
+                        enum_mappings,
                     });
                 }
             }
@@ -183,6 +243,60 @@ impl FieldMappingParser {
         }
 
         objects
+    }
+
+    /// 解析枚举映射列表
+    pub fn parse_enum_mappings(
+        enum_mappings_str: &str,
+    ) -> Result<Vec<apdl_core::EnumMappingEntry>, String> {
+        let mut enum_mappings = Vec::new();
+
+        // 首先去掉方括号
+        let clean_str = enum_mappings_str.trim();
+        let content = if clean_str.starts_with('[') && clean_str.ends_with(']') {
+            &clean_str[1..clean_str.len() - 1] // 去掉首尾的方括号
+        } else {
+            clean_str // 如果没有方括号，就使用原始内容
+        };
+
+        // 分割每个枚举映射对象
+        let mapping_objects = Self::split_mapping_objects(content);
+
+        for obj_str in mapping_objects {
+            let obj_str = obj_str.trim();
+            if obj_str.starts_with('{') && obj_str.ends_with('}') {
+                let content = &obj_str[1..obj_str.len() - 1]; // 去掉大括号
+
+                let mut source_enum = String::new();
+                let mut target_enum = String::new();
+
+                for pair in content.split(",").map(|s| s.trim()) {
+                    let kv: Vec<&str> = pair.splitn(2, ':').map(|s| s.trim()).collect();
+                    if kv.len() == 2 {
+                        let key = kv[0].trim().trim_matches(|c| c == '"');
+                        let value = kv[1]
+                            .trim()
+                            .trim_matches(|c| c == '"')
+                            .trim_matches(|c| c == '"');
+
+                        match key {
+                            "source_enum" => source_enum = value.to_string(),
+                            "target_enum" => target_enum = value.to_string(),
+                            _ => {}
+                        }
+                    }
+                }
+
+                if !source_enum.is_empty() && !target_enum.is_empty() {
+                    enum_mappings.push(apdl_core::EnumMappingEntry {
+                        source_enum,
+                        target_enum,
+                    });
+                }
+            }
+        }
+
+        Ok(enum_mappings)
     }
 }
 
