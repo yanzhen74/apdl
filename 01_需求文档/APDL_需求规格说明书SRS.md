@@ -251,6 +251,28 @@ APDL（APDS Protocol Definition Language）是一个面向航天领域的协议�
     desc: "Map telemetry source to VCID"
   )
   ```
+- **扩展功能**：支持枚举值之间的多对一映射关系，enumSrc可以用通配符
+  - **枚举映射语法**：在mapping对象中添加`enum_mappings`字段，定义源枚举值到目标枚举值的映射关系
+  - **通配符支持**：支持`*`（匹配任意长度字符串）和`?`（匹配单个字符）通配符
+  - **DSL扩展语法示例**：
+  ```dsl
+  rule: field_mapping(
+    source_package: "lower_layer_packet";
+    target_package: "upper_layer_packet";
+    mappings: [{
+      source_field: "src_type",
+      target_field: "vcid",
+      mapping_logic: "hash_mod_64",
+      default_value: "0",
+      enum_mappings: [
+        {source_enum: "data_type_a", target_enum: "vcid_0"},
+        {source_enum: "data_type_b", target_enum: "vcid_1"},
+        {source_enum: "*", target_enum: "default_vcid"}  // 通配符匹配
+      ]
+    }];
+    desc: "Map source type to VCID with enum mapping"
+  )
+  ```
 
 #### 3.1.14.2 多路复用（Multiplexing）机制
 多路复用是包内的逻辑选择机制，用于根据某个字段的值来决定选择哪个目标字段或处理路径。
