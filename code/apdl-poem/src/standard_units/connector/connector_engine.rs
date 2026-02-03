@@ -2,7 +2,9 @@
 //!
 //! 负责执行字段映射规则，将源包的字段值映射到目标包的字段
 
-use apdl_core::{FieldMappingEntry, SemanticRule, SyntaxUnit};
+use apdl_core::{
+    DataPlacementConfig, DataPlacementStrategy, FieldMappingEntry, SemanticRule, SyntaxUnit,
+};
 
 /// 连接器引擎
 pub struct ConnectorEngine {
@@ -84,6 +86,200 @@ impl ConnectorEngine {
             }
         }
         Ok(())
+    }
+
+    /// 执行数据放置策略
+    pub fn apply_data_placement(
+        &self,
+        source_package: &[SyntaxUnit],
+        target_package: &mut [SyntaxUnit],
+        placement_config: &DataPlacementConfig,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        match &placement_config.strategy {
+            DataPlacementStrategy::Direct => {
+                self.apply_direct_placement(source_package, target_package, placement_config)?;
+            }
+            DataPlacementStrategy::PointerBased => {
+                self.apply_pointer_based_placement(
+                    source_package,
+                    target_package,
+                    placement_config,
+                )?;
+            }
+            DataPlacementStrategy::StreamBased => {
+                self.apply_stream_based_placement(
+                    source_package,
+                    target_package,
+                    placement_config,
+                )?;
+            }
+            DataPlacementStrategy::Custom(strategy_name) => {
+                self.apply_custom_placement(
+                    source_package,
+                    target_package,
+                    placement_config,
+                    strategy_name,
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    /// 直接放置策略
+    fn apply_direct_placement(
+        &self,
+        source_package: &[SyntaxUnit],
+        target_package: &mut [SyntaxUnit],
+        placement_config: &DataPlacementConfig,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // 将源包数据直接放置到目标包的指定字段
+        let target_field_name = &placement_config.target_field;
+
+        if let Some(target_idx) = target_package
+            .iter()
+            .position(|f| f.field_id == *target_field_name)
+        {
+            // 这里简化实现，实际上需要将整个源包数据复制到目标字段
+            let source_data = self.extract_package_data(source_package)?;
+            self.set_field_value(&mut target_package[target_idx], &source_data)?;
+        }
+
+        Ok(())
+    }
+
+    /// 指针基于放置策略
+    fn apply_pointer_based_placement(
+        &self,
+        source_package: &[SyntaxUnit],
+        target_package: &mut [SyntaxUnit],
+        placement_config: &DataPlacementConfig,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // 根据配置参数确定指针字段和放置逻辑
+        let target_field_name = &placement_config.target_field;
+
+        // 查找配置参数中的指针字段名
+        let pointer_field = placement_config
+            .config_params
+            .iter()
+            .find(|(key, _)| key == "pointer_field")
+            .map(|(_, value)| value)
+            .unwrap_or(target_field_name);
+
+        if let Some(target_idx) = target_package
+            .iter()
+            .position(|f| f.field_id == *target_field_name)
+        {
+            // 生成指向源包数据的指针值
+            let pointer_value = self.generate_pointer_value(source_package)?;
+            self.set_field_value(&mut target_package[target_idx], &pointer_value)?;
+        }
+
+        Ok(())
+    }
+
+    /// 数据流放置策略
+    fn apply_stream_based_placement(
+        &self,
+        source_package: &[SyntaxUnit],
+        target_package: &mut [SyntaxUnit],
+        placement_config: &DataPlacementConfig,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // 将源包数据按流形式放置到目标包
+        let target_field_name = &placement_config.target_field;
+
+        if let Some(target_idx) = target_package
+            .iter()
+            .position(|f| f.field_id == *target_field_name)
+        {
+            let stream_data = self.extract_package_data_as_stream(source_package)?;
+            self.set_field_value(&mut target_package[target_idx], &stream_data)?;
+        }
+
+        Ok(())
+    }
+
+    /// 自定义放置策略
+    fn apply_custom_placement(
+        &self,
+        source_package: &[SyntaxUnit],
+        target_package: &mut [SyntaxUnit],
+        placement_config: &DataPlacementConfig,
+        strategy_name: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // 根据自定义策略名称应用特定逻辑
+        println!("Applying custom placement strategy: {}", strategy_name);
+
+        let target_field_name = &placement_config.target_field;
+
+        if let Some(target_idx) = target_package
+            .iter()
+            .position(|f| f.field_id == *target_field_name)
+        {
+            let custom_data = self.process_custom_placement(source_package, strategy_name)?;
+            self.set_field_value(&mut target_package[target_idx], &custom_data)?;
+        }
+
+        Ok(())
+    }
+
+    /// 提取包数据
+    fn extract_package_data(
+        &self,
+        package: &[SyntaxUnit],
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        // 简化的数据提取实现
+        // 在实际实现中，这会根据协议格式将所有字段数据拼接起来
+        let mut result = Vec::new();
+        for field in package {
+            let field_data = self.get_field_value(field)?;
+            result.extend_from_slice(&field_data);
+        }
+        Ok(result)
+    }
+
+    /// 提取包数据作为数据流
+    fn extract_package_data_as_stream(
+        &self,
+        package: &[SyntaxUnit],
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        // 与普通提取类似，但可能应用额外的流处理逻辑
+        self.extract_package_data(package)
+    }
+
+    /// 生成指针值
+    fn generate_pointer_value(
+        &self,
+        package: &[SyntaxUnit],
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        // 生成指向数据的指针值（这里简化为哈希值）
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let data = self.extract_package_data(package)?;
+        let mut hasher = DefaultHasher::new();
+        data.hash(&mut hasher);
+        let hash_value = hasher.finish();
+
+        Ok(hash_value.to_be_bytes().to_vec())
+    }
+
+    /// 处理自定义放置策略
+    fn process_custom_placement(
+        &self,
+        package: &[SyntaxUnit],
+        strategy: &str,
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        // 根据策略名称执行特定处理
+        match strategy {
+            "complex_routing" => {
+                // 复杂路由策略
+                self.extract_package_data(package)
+            }
+            _ => {
+                // 默认为直接提取数据
+                self.extract_package_data(package)
+            }
+        }
     }
 
     /// 获取字段值（简化实现）

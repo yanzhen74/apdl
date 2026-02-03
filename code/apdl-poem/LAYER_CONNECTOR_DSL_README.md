@@ -17,10 +17,27 @@ APDL（APDS Protocol Definition Language）分层与连接器DSL是一个用于�
 定义协议数据包的基本单位，包含多个协议层和字段定义。
 
 ### 2. 连接器（Connector）
-定义层间数据传输机制，包含字段映射规则和头部指针配置。
+定义层间数据传输机制，包含：
+- 字段映射规则（field mapping rules）
+- 数据放置策略（data placement strategies）
 
 ### 3. 协议栈（Protocol Stack）
 组合多个包和连接器，定义协议处理流程，支持并列包组和优先级调度。
+
+## 连接器功能详解
+
+### 1. 字段映射（Field Mapping）
+将源包的字段值映射到目标包的字段：
+- 支持多种映射逻辑（identity, hash_mod_64, hash_mod_2048等）
+- 支持默认值设置
+- 支持枚举值映射
+
+### 2. 数据放置策略（Data Placement Strategies）
+定义如何将子包数据放入父包的数据区：
+- **导头指针方式**：通过指针指向子包位置
+- **直接放入方式**：当长度固定且匹配时直接嵌入
+- **数据流方式**：按流数据放入固定长度的数据区
+- **其他策略**：可根据协议需求扩展
 
 ## DSL语法
 
@@ -43,7 +60,7 @@ package <package_name> {
 ### 连接器定义语法
 ```
 connector <connector_name> {
-    type: "<Connector Type>";          // 如 "field_mapping"
+    type: "<Connector Type>";          // 如 "field_mapping", "data_placement"
     source_package: "<Source Package>"; // 源包名称
     target_package: "<Target Package>"; // 目标包名称
     config: {
@@ -55,10 +72,12 @@ connector <connector_name> {
                 default_value: "<Default Value>";
             }
         ];
-        header_pointers: {             // 头部指针配置（可选）
-            master_pointer: "<Master Pointer Field>";
-            secondary_pointers: ["<Pointer1>", "<Pointer2>"];
-            descriptor_field: "<Descriptor Field>";
+        placement_strategy: {          // 数据放置策略
+            strategy: "<Strategy Type>"; // "direct", "pointer_based", "stream_based"
+            target_field: "<Target Field Name>"; // 在目标包中的放置位置
+            config: {                  // 策略特定配置
+                // 根据策略类型有所不同
+            };
         };
     };
     desc: "<Description>";
@@ -135,8 +154,16 @@ connector telemetry_to_encapsulating {
                 default_value: "0"
             }
         ];
+        placement_strategy: {
+            strategy: "pointer_based";
+            target_field: "data_field";
+            config: {
+                pointer_field: "first_header_ptr";
+                map_id: "map_id_field";
+            };
+        };
     };
-    desc: "Map telemetry source ID to APID";
+    desc: "Map telemetry source ID to APID and place data via pointers";
 };
 
 protocol_stack ccnds_stack {

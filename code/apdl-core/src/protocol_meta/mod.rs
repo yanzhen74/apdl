@@ -324,11 +324,29 @@ pub struct PackageDefinition {
     pub description: String,
 }
 
+/// 数据放置策略类型
+#[derive(Debug, Clone, PartialEq)]
+pub enum DataPlacementStrategy {
+    Direct,         // 直接放入方式
+    PointerBased,   // 导头指针方式
+    StreamBased,    // 数据流方式
+    Custom(String), // 自定义策略
+}
+
+/// 数据放置配置
+#[derive(Debug, Clone, PartialEq)]
+pub struct DataPlacementConfig {
+    pub strategy: DataPlacementStrategy,
+    pub target_field: String,                 // 在目标包中的放置位置
+    pub config_params: Vec<(String, String)>, // 策略特定配置参数
+}
+
 /// 连接器配置结构
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConnectorConfig {
     pub mappings: Vec<FieldMappingEntry>,
     pub header_pointers: Option<HeaderPointerConfig>,
+    pub data_placement: Option<DataPlacementConfig>, // 新增数据放置配置
 }
 
 /// 导头指针配置结构
@@ -408,6 +426,7 @@ impl ConnectorDefinition {
             config: ConnectorConfig {
                 mappings: Vec::new(),
                 header_pointers: None,
+                data_placement: None, // 新增数据放置配置
             },
             description,
         }
