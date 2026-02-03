@@ -75,6 +75,8 @@ APDL (APDS Protocol Definition Language) 是一个面向航天领域的协议定
 - `APDL_LAYER_CONNECTOR_DESIGN_UPDATED.md`: 基于当前实现现状的更新版设计文档
 - `APDL_LAYER_CONNECTOR_DEV_PLAN.md`: 详细的开发计划
 - `APDL_LAYER_CONNECTOR_DEV_CURRENT.md`: 基于当前实现现状的开发计划
+- `CONNECTOR_ARCHITECTURE.md`: 连接器系统架构说明
+- `LAYER_CONNECTOR_DSL_README.md`: 分层与连接器DSL用户文档
 
 ### 已实现功能
 - **扩展数据结构**: 在 `apdl_core` 中添加了 `PackageDefinition`、`ConnectorDefinition`、`ProtocolStackDefinition` 等核心数据结构
@@ -83,14 +85,13 @@ APDL (APDS Protocol Definition Language) 是一个面向航天领域的协议定
 - **协议栈解析器**: 实现了 `protocol_stack_parser`，支持协议栈定义的解析
 - **DSL 集成**: 将新的解析器集成到主 DSL 解析器中
 - **基础解析功能**: 实现了对方括号数组、花括号对象、嵌套结构的解析支持
+- **连接器系统**: 实现了DSL解析器与运行时引擎的协作架构
+- **集成测试**: 创建了验证DSL解析器和运行时引擎协同工作的测试用例
 
 ### 计划功能（待完善）
-- **包定义语法**: `package` 语法支持多层协议定义
-- **连接器定义语法**: `connector` 语法支持包间映射
-- **协议栈定义语法**: `protocol_stack` 语法支持多层协议栈
 - **导头指针处理**: 支持数据区子包恢复机制
 - **并列包处理**: 支持同一层内的并列包结构
-- **解析器完善**: 完善连接器和协议栈解析器，解决剩余的测试问题
+- **高级映射逻辑**: 扩展连接器引擎支持更多映射类型
 
 ## 技术栈
 
@@ -110,12 +111,13 @@ APDL (APDS Protocol Definition Language) 是一个面向航天领域的协议定
 - 23 种语义规则处理器
 - TODO 标记系统
 - DSL 解析器增强
+- 分层与连接器 DSL 系统
 
 ### 下一阶段目标
-- 实现分层与连接器 DSL 功能
-- 完成包定义、连接器定义、协议栈定义功能
 - 实现导头指针处理机制
 - 完成数据区子包恢复功能
+- 扩展连接器引擎支持更多映射类型
+- 完善协议栈定义语法
 
 ## 项目特色
 

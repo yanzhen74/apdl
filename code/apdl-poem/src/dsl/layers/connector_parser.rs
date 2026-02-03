@@ -57,15 +57,24 @@ impl ConnectorParser {
                 continue;
             }
 
-            if line.starts_with("type:") {
+            // 移除行末的分号后再进行匹配
+            let line_no_semicolon = line.trim_end().trim_end_matches(';');
+
+            if line_no_semicolon.trim_start().starts_with("type:") {
                 connector_type = Self::extract_simple_value(line)?;
-            } else if line.starts_with("source_package:") {
+            } else if line_no_semicolon
+                .trim_start()
+                .starts_with("source_package:")
+            {
                 source_package = Self::extract_quoted_value(line)?;
-            } else if line.starts_with("target_package:") {
+            } else if line_no_semicolon
+                .trim_start()
+                .starts_with("target_package:")
+            {
                 target_package = Self::extract_quoted_value(line)?;
-            } else if line.starts_with("desc:") {
+            } else if line_no_semicolon.trim_start().starts_with("desc:") {
                 description = Self::extract_quoted_value(line)?;
-            } else if line.starts_with("config:") {
+            } else if line_no_semicolon.trim_start().starts_with("config:") {
                 // config 后面跟着一个花括号块，需要收集完整的内容
                 let mut config_block = String::from(line);
                 let mut brace_count = 0;
@@ -84,7 +93,13 @@ impl ConnectorParser {
                         '\\' if in_string => escape_next = true,
                         '"' => in_string = !in_string,
                         '{' if !in_string => brace_count += 1,
-                        '}' if !in_string => brace_count -= 1,
+                        '}' if !in_string => {
+                            brace_count -= 1;
+                            if brace_count == 0 {
+                                // 找到了平衡的括号，跳出循环
+                                break;
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -92,9 +107,9 @@ impl ConnectorParser {
                 // 继续收集行直到括号平衡
                 while brace_count > 0 {
                     if let Some(next_line) = lines.next() {
-                        let next_trimmed = next_line.trim();
-                        config_block.push_str(" ");
-                        config_block.push_str(next_trimmed);
+                        let next_trimmed = next_line;
+                        config_block.push('\n');
+                        config_block.push_str(next_line);
 
                         // 更新括号计数
                         let mut in_string = false;
@@ -119,58 +134,37 @@ impl ConnectorParser {
                     }
                 }
 
-                // config_block 包含了完整的 config: { ... } 内容，我们需要提取花括号内的内容
-                // 找到第一个 '{' 的位置并提取其内容
-                let mut brace_count = 0;
-                let mut in_string = false;
-                let mut escape_next = false;
-                let mut start_pos = None;
-                let mut end_pos = None;
+                // 简化处理：直接提取 config 块的内容
+                // 需要找到第一个 { 的位置，因为 config_block 包含了整行内容
+                let content_without_prefix = config_block.trim_start();
+                let start_brace_pos = content_without_prefix.find('{');
 
-                for (i, c) in config_block.char_indices() {
-                    if escape_next {
-                        escape_next = false;
-                        continue;
-                    }
+                let content_to_parse = if let Some(pos) = start_brace_pos {
+                    &content_without_prefix[pos..]
+                } else {
+                    return Err("Could not find opening brace in config block".to_string());
+                };
 
-                    match c {
-                        '\\' if in_string => escape_next = true,
-                        '"' => in_string = !in_string,
-                        '{' if !in_string => {
-                            if brace_count == 0 {
-                                start_pos = Some(i + 1); // 跳过 '{'
-                            }
-                            brace_count += 1;
-                        }
-                        '}' if !in_string => {
-                            brace_count -= 1;
-                            if brace_count == 0 {
-                                end_pos = Some(i);
-                                break; // 找到匹配的 '}'
-                            }
-                        }
-                        _ => {}
-                    }
-                }
+                let config_content = Self::extract_braced_content(content_to_parse)?;
 
-                if let (Some(start), Some(end)) = (start_pos, end_pos) {
-                    let config_content = &config_block[start..end];
+                // 为正确处理跨多行的数组，我们需要从 config_content 整体中查找
+                // 而不是逐行处理，因为 mappings: [ 可能跨越多行
 
-                    // 为正确处理跨多行的数组，我们需要从 config_content 整体中查找
-                    // 而不是逐行处理，因为 mappings: [ 可能跨越多行
+                // 查找 mappings 数组
+                if let Some(mappings_pos) = config_content.find("mappings:") {
+                    // 从 mappings: 位置开始寻找完整的数组
+                    let from_mappings = &config_content[mappings_pos..];
 
-                    // 查找 mappings 数组
-                    if let Some(mappings_pos) = config_content.find("mappings:") {
-                        // 从 mappings: 位置开始寻找完整的数组
-                        let from_mappings = &config_content[mappings_pos..];
+                    let mut bracket_count = 0;
+                    let mut in_string = false;
+                    let mut escape_next = false;
+                    let mut array_start = None;
+                    let mut array_end = None;
 
-                        let mut bracket_count = 0;
-                        let mut in_string = false;
-                        let mut escape_next = false;
-                        let mut array_start = None;
-                        let mut array_end = None;
-
-                        for (i, c) in from_mappings.char_indices() {
+                    // 跳过 mappings: 部分，找到第一个 [
+                    if let Some(bracket_pos) = from_mappings.find('[') {
+                        for (i, c) in from_mappings[bracket_pos..].char_indices() {
+                            let actual_i = i + bracket_pos;
                             if escape_next {
                                 escape_next = false;
                                 continue;
@@ -181,39 +175,43 @@ impl ConnectorParser {
                                 '"' => in_string = !in_string,
                                 '[' if !in_string => {
                                     if bracket_count == 0 {
-                                        array_start = Some(i + 1); // 跳过 '['
+                                        array_start = Some(actual_i + 1); // 跳过 '['
                                     }
                                     bracket_count += 1;
                                 }
                                 ']' if !in_string => {
                                     bracket_count -= 1;
                                     if bracket_count == 0 {
-                                        array_end = Some(i);
+                                        array_end = Some(actual_i);
                                         break; // 找到匹配的 ']'
                                     }
                                 }
                                 _ => {}
                             }
                         }
-
-                        if let (Some(start), Some(end)) = (array_start, array_end) {
-                            mappings_str = from_mappings[start..end].to_string();
-                        } else {
-                            return Err("Could not extract mappings content".to_string());
-                        }
                     }
 
-                    // 查找 header_pointers 对象（如果存在）
-                    if let Some(hp_pos) = config_content.find("header_pointers:") {
-                        let from_hp = &config_content[hp_pos..];
+                    if let (Some(start), Some(end)) = (array_start, array_end) {
+                        mappings_str = from_mappings[start..end].to_string();
+                    } else {
+                        return Err("Could not extract mappings content".to_string());
+                    }
+                }
 
-                        let mut brace_count = 0;
-                        let mut in_string = false;
-                        let mut escape_next = false;
-                        let mut obj_start = None;
-                        let mut obj_end = None;
+                // 查找 header_pointers 对象（如果存在）
+                if let Some(hp_pos) = config_content.find("header_pointers:") {
+                    let from_hp = &config_content[hp_pos..];
 
-                        for (i, c) in from_hp.char_indices() {
+                    let mut brace_count = 0;
+                    let mut in_string = false;
+                    let mut escape_next = false;
+                    let mut obj_start = None;
+                    let mut obj_end = None;
+
+                    // 跳过 header_pointers: 部分，找到第一个 {
+                    if let Some(brace_pos) = from_hp.find('{') {
+                        for (i, c) in from_hp[brace_pos..].char_indices() {
+                            let actual_i = i + brace_pos;
                             if escape_next {
                                 escape_next = false;
                                 continue;
@@ -224,27 +222,25 @@ impl ConnectorParser {
                                 '"' => in_string = !in_string,
                                 '{' if !in_string => {
                                     if brace_count == 0 {
-                                        obj_start = Some(i + 1); // 跳过 '{'
+                                        obj_start = Some(actual_i + 1); // 跳过 '{'
                                     }
                                     brace_count += 1;
                                 }
                                 '}' if !in_string => {
                                     brace_count -= 1;
                                     if brace_count == 0 {
-                                        obj_end = Some(i);
+                                        obj_end = Some(actual_i);
                                         break; // 找到匹配的 '}'
                                     }
                                 }
                                 _ => {}
                             }
                         }
-
-                        if let (Some(start), Some(end)) = (obj_start, obj_end) {
-                            header_pointers_str = from_hp[start..end].to_string();
-                        }
                     }
-                } else {
-                    return Err("Could not extract config content".to_string());
+
+                    if let (Some(start), Some(end)) = (obj_start, obj_end) {
+                        header_pointers_str = from_hp[start..end].to_string();
+                    }
                 }
             }
         }
@@ -289,8 +285,8 @@ impl ConnectorParser {
     fn parse_mappings(mappings_content: &str) -> Result<Vec<FieldMappingEntry>, String> {
         let mut mappings = Vec::new();
 
-        // 提取数组内容
-        let mappings_array_content = Self::extract_bracket_content_from_array(mappings_content)?;
+        // mappings_content 已经是提取出的数组内容（不包含方括号）
+        let mappings_array_content = mappings_content;
 
         // 按映射条目分割
         let mapping_defs = Self::split_mapping_definitions(mappings_array_content);
@@ -316,13 +312,16 @@ impl ConnectorParser {
                 continue;
             }
 
-            if line.starts_with("source_field:") {
+            // 移除行末的分号后再进行匹配
+            let line_no_semicolon = line.trim_end().trim_end_matches(';');
+
+            if line_no_semicolon.contains("source_field:") {
                 source_field = Self::extract_quoted_value(line)?;
-            } else if line.starts_with("target_field:") {
+            } else if line_no_semicolon.contains("target_field:") {
                 target_field = Self::extract_quoted_value(line)?;
-            } else if line.starts_with("logic:") {
+            } else if line_no_semicolon.contains("logic:") {
                 mapping_logic = Self::extract_quoted_value(line)?;
-            } else if line.starts_with("default_value:") {
+            } else if line_no_semicolon.contains("default_value:") {
                 default_value = Self::extract_quoted_value(line)?;
             }
         }
@@ -360,12 +359,15 @@ impl ConnectorParser {
                 continue;
             }
 
-            if line.starts_with("master_pointer:") {
+            // 移除行末的分号后再进行匹配
+            let line_no_semicolon = line.trim_end().trim_end_matches(';');
+
+            if line_no_semicolon.starts_with("master_pointer:") {
                 master_pointer = Self::extract_quoted_value(line)?;
-            } else if line.starts_with("secondary_pointers:") {
+            } else if line_no_semicolon.starts_with("secondary_pointers:") {
                 let array_content = Self::extract_array_content(line)?;
                 secondary_pointers = Self::parse_secondary_pointers(&array_content)?;
-            } else if line.starts_with("descriptor_field:") {
+            } else if line_no_semicolon.starts_with("descriptor_field:") {
                 descriptor_field = Self::extract_quoted_value(line)?;
             }
         }
@@ -515,33 +517,18 @@ impl ConnectorParser {
                 }
                 '{' if !in_string => {
                     if brace_count == 0 {
-                        start = i + 1; // 跳过左花括号
+                        start = i; // 记录开始位置
                     }
                     brace_count += 1;
                 }
                 '}' if !in_string => {
                     brace_count -= 1;
                     if brace_count == 0 {
-                        defs.push(&content[start..i]);
-                        // 跳过这个右花括号并寻找下一个左花括号
-                        continue;
+                        defs.push(&content[start..i + 1]);
                     }
-                }
-                ',' if !in_string && brace_count == 0 => {
-                    // 在顶层逗号处分割
-                    if start < i {
-                        defs.push(&content[start..i]);
-                    }
-                    // 寻找下一个左花括号
-                    start = 0;
                 }
                 _ => {}
             }
-        }
-
-        // 添加最后一个定义
-        if start < content.len() && brace_count == 0 {
-            defs.push(&content[start..]);
         }
 
         defs
@@ -637,7 +624,14 @@ mod tests {
         "#;
 
         let result = ConnectorParser::parse_connector_definition(dsl);
-        assert!(result.is_ok());
+        if result.is_err() {
+            println!("Error parsing connector: {:?}", result.as_ref().err());
+        }
+        assert!(
+            result.is_ok(),
+            "Failed to parse connector: {:?}",
+            result.as_ref().err()
+        );
 
         let conn = result.unwrap();
         assert_eq!(conn.name, "test_connector");

@@ -48,22 +48,45 @@ impl ProtocolStackParser {
         let mut parallel_groups = Vec::new();
         let mut description = String::new();
 
-        // 解析各个字段
-        for line in content.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with("//") {
-                continue;
+        // 使用模式匹配来查找各部分，而不是简单的逐行解析
+        // 1. 查找 packages
+        if let Some(start_pos) = content.find("packages:") {
+            let from_packages = &content[start_pos..];
+            if let Some(array_start) = from_packages.find('[') {
+                let from_array_start = &from_packages[array_start..];
+                let array_content = Self::extract_bracket_content_from_array(from_array_start)?;
+                packages = Self::parse_string_array(array_content)?;
             }
+        }
 
-            if line.starts_with("packages:") {
-                packages = Self::parse_string_array(line)?;
-            } else if line.starts_with("connectors:") {
-                connectors = Self::parse_string_array(line)?;
-            } else if line.starts_with("parallel_groups:") {
-                let groups_content = Self::extract_array_content(line)?;
-                parallel_groups = Self::parse_parallel_groups(&groups_content)?;
-            } else if line.starts_with("desc:") {
-                description = Self::extract_quoted_value(line)?;
+        // 2. 查找 connectors
+        if let Some(start_pos) = content.find("connectors:") {
+            let from_connectors = &content[start_pos..];
+            if let Some(array_start) = from_connectors.find('[') {
+                let from_array_start = &from_connectors[array_start..];
+                let array_content = Self::extract_bracket_content_from_array(from_array_start)?;
+                connectors = Self::parse_string_array(array_content)?;
+            }
+        }
+
+        // 3. 查找 parallel_groups - 这是最复杂的一个，因为它包含对象
+        if let Some(start_pos) = content.find("parallel_groups:") {
+            let from_parallel_groups = &content[start_pos..];
+            if let Some(array_start) = from_parallel_groups.find('[') {
+                let from_array_start = &from_parallel_groups[array_start..];
+                let array_content = Self::extract_bracket_content_from_array(from_array_start)?;
+                parallel_groups = Self::parse_parallel_groups(array_content)?;
+            }
+        }
+
+        // 4. 查找描述
+        if let Some(start_pos) = content.find("desc:") {
+            let from_desc = &content[start_pos..];
+            if let Some(quote_start) = from_desc.find('"') {
+                let after_first_quote = &from_desc[quote_start + 1..];
+                if let Some(quote_end) = after_first_quote.find('"') {
+                    description = after_first_quote[..quote_end].to_string();
+                }
             }
         }
 
@@ -77,17 +100,27 @@ impl ProtocolStackParser {
     }
 
     /// 解析字符串数组
-    fn parse_string_array(line: &str) -> Result<Vec<String>, String> {
-        let colon_pos = line.find(':').ok_or("Missing colon in line")?;
+    fn parse_string_array(array_content: &str) -> Result<Vec<String>, String> {
+        // array_content 是完整的数组字符串，可能包含或不包含方括号
+        let trimmed_content = array_content.trim();
 
-        let value_part = line[colon_pos + 1..].trim();
-
-        // 提取数组内容
-        let array_content = Self::extract_bracket_content_from_array(value_part)?;
+        // 检查是否包含方括号，如果包含则去掉
+        let inner_content = if trimmed_content.starts_with('[') && trimmed_content.ends_with(']') {
+            // 去除首尾的方括号
+            &trimmed_content[1..trimmed_content.len() - 1].trim()
+        } else {
+            // 如果没有方括号，则直接使用原内容
+            trimmed_content
+        };
 
         // 按逗号分割并去除引号
         let mut result = Vec::new();
-        for item in array_content.split(',') {
+        if inner_content.is_empty() {
+            // 如果内容为空，返回空数组
+            return Ok(result);
+        }
+
+        for item in inner_content.split(',') {
             let item = item.trim();
             if item.starts_with('"') && item.ends_with('"') {
                 let value = item[1..item.len() - 1].trim();
@@ -102,8 +135,8 @@ impl ProtocolStackParser {
     fn parse_parallel_groups(groups_content: &str) -> Result<Vec<ParallelPackageGroup>, String> {
         let mut groups = Vec::new();
 
-        // 提取数组内容
-        let groups_array_content = Self::extract_bracket_content_from_array(groups_content)?;
+        // groups_content 已经是提取出的数组内容（不包含方括号）
+        let groups_array_content = groups_content;
 
         // 按并列包组分割
         let group_defs = Self::split_group_definitions(groups_array_content);
@@ -129,14 +162,17 @@ impl ProtocolStackParser {
                 continue;
             }
 
-            if line.starts_with("name:") {
+            // 移除行末的分号后再进行匹配
+            let line_no_semicolon = line.trim_end().trim_end_matches(';');
+
+            if line_no_semicolon.starts_with("name:") {
                 name = Self::extract_quoted_value(line)?;
-            } else if line.starts_with("packages:") {
+            } else if line_no_semicolon.starts_with("packages:") {
                 let packages_content = Self::extract_array_content(line)?;
                 packages = Self::parse_string_array_in_content(&packages_content)?;
-            } else if line.starts_with("algorithm:") {
+            } else if line_no_semicolon.starts_with("algorithm:") {
                 algorithm = Self::extract_quoted_value(line)?;
-            } else if line.starts_with("priority:") {
+            } else if line_no_semicolon.starts_with("priority:") {
                 priority = Self::extract_number_value(line)?;
             }
         }
@@ -159,7 +195,8 @@ impl ProtocolStackParser {
 
     /// 解析内容中的字符串数组
     fn parse_string_array_in_content(content: &str) -> Result<Vec<String>, String> {
-        let array_content = Self::extract_bracket_content_from_array(content)?;
+        // content 已经是提取出的数组内容（不包含方括号）
+        let array_content = content;
 
         let mut result = Vec::new();
         for item in array_content.split(',') {
@@ -178,7 +215,10 @@ impl ProtocolStackParser {
         let colon_pos = line.find(':').ok_or("Missing colon in line")?;
 
         let value_part = line[colon_pos + 1..].trim();
-        let num_str = value_part.trim();
+        let mut num_str = value_part.trim();
+
+        // 移除末尾的分号
+        num_str = num_str.trim_end_matches(';').trim();
 
         num_str
             .parse::<u32>()
@@ -296,15 +336,14 @@ impl ProtocolStackParser {
                 }
                 '{' if !in_string => {
                     if brace_count == 0 {
-                        start = i + 1; // 跳过左花括号
+                        start = i; // 记录开始位置
                     }
                     brace_count += 1;
                 }
                 '}' if !in_string => {
                     brace_count -= 1;
                     if brace_count == 0 {
-                        defs.push(&content[start..i]);
-                        continue;
+                        defs.push(&content[start..i + 1]);
                     }
                 }
                 _ => {}
@@ -387,7 +426,14 @@ mod tests {
         "#;
 
         let result = ProtocolStackParser::parse_protocol_stack_definition(dsl);
-        assert!(result.is_ok());
+        if result.is_err() {
+            println!("Error parsing protocol stack: {:?}", result.as_ref().err());
+        }
+        assert!(
+            result.is_ok(),
+            "Failed to parse protocol stack: {:?}",
+            result.as_ref().err()
+        );
 
         let stack = result.unwrap();
         assert_eq!(stack.name, "test_stack");
