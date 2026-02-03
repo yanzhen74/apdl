@@ -158,7 +158,7 @@ impl ConnectorEngine {
         let target_field_name = &placement_config.target_field;
 
         // 查找配置参数中的指针字段名
-        let pointer_field = placement_config
+        let _pointer_field = placement_config
             .config_params
             .iter()
             .find(|(key, _)| key == "pointer_field")

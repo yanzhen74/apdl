@@ -225,14 +225,36 @@ impl ConnectorParser {
 
     /// 解析映射规则数组
     fn parse_mappings(mappings_text: &str) -> Result<Vec<FieldMappingEntry>, String> {
-        let content = Self::extract_braced_content(mappings_text)?;
+        // 检查是否是数组格式 [ ... ]
+        let trimmed = mappings_text.trim();
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            // 提取方括号内容
+            let content = Self::extract_array_content(trimmed)?;
+            Self::parse_mappings_from_content(&content)
+        } else {
+            // 如果不是数组格式，尝试提取花括号内容（向后兼容）
+            let content = Self::extract_braced_content(mappings_text)?;
+            Self::parse_mappings_from_content(&content)
+        }
+    }
+
+    /// 从内容解析映射规则
+    fn parse_mappings_from_content(content: &str) -> Result<Vec<FieldMappingEntry>, String> {
         let mut mappings = Vec::new();
 
         // 解析数组内容
         let items = Self::parse_array_items(content)?;
 
         for item in items {
-            let obj_props = Self::parse_object(&item)?;
+            // 检查item是否已经是用大括号包围的对象格式
+            let clean_item = item.trim();
+            let obj_content = if clean_item.starts_with('{') && clean_item.ends_with('}') {
+                clean_item
+            } else {
+                &format!("{{{}}}", clean_item)
+            };
+
+            let obj_props = Self::parse_object(obj_content)?;
 
             let source_field = obj_props
                 .get("source_field")
@@ -268,6 +290,51 @@ impl ConnectorParser {
         }
 
         Ok(mappings)
+    }
+
+    /// 提取方括号内容
+    fn extract_array_content(text: &str) -> Result<&str, String> {
+        let mut bracket_count = 0;
+        let mut in_string = false;
+        let mut escape_next = false;
+        let mut start_pos = 0;
+        let mut end_pos = 0;
+
+        for (i, c) in text.char_indices() {
+            if escape_next {
+                escape_next = false;
+                continue;
+            }
+
+            match c {
+                '\\' if in_string => escape_next = true,
+                '"' => in_string = !in_string,
+                '[' if !in_string => {
+                    if bracket_count == 0 {
+                        start_pos = i + 1; // 跳过左方括号
+                    }
+                    bracket_count += 1;
+                }
+                ']' if !in_string => {
+                    bracket_count -= 1;
+                    if bracket_count == 0 {
+                        end_pos = i;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if bracket_count != 0 {
+            return Err("Unmatched brackets".to_string());
+        }
+
+        if end_pos <= start_pos {
+            return Ok("");
+        }
+
+        Ok(&text[start_pos..end_pos])
     }
 
     /// 解析数组项
@@ -331,6 +398,17 @@ impl ConnectorParser {
                         current_item.push(c);
                     } else {
                         // 当前项结束（如果是简单值）
+                        if !current_item.trim().is_empty() {
+                            items.push(current_item.trim().to_string());
+                            current_item.clear();
+                        }
+                    }
+                }
+                ';' if !in_string && brace_count == 0 && bracket_count == 0 => {
+                    if in_item {
+                        current_item.push(c);
+                    } else {
+                        // 当前项结束（如果是简单值）- 在数组中也支持分号分隔
                         if !current_item.trim().is_empty() {
                             items.push(current_item.trim().to_string());
                             current_item.clear();
@@ -552,6 +630,7 @@ impl ConnectorParser {
     }
 
     /// 提取简单值（非对象或数组的值）
+    #[allow(dead_code)]
     fn extract_simple_value(line: &str) -> Result<String, String> {
         let parts: Vec<&str> = line.split(':').collect();
         if parts.len() < 2 {

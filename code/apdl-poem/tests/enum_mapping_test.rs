@@ -43,7 +43,7 @@ fn test_field_mapping_with_enum_mappings() {
 
 #[test]
 fn test_wildcard_enum_matching() {
-    use apdl_poem::standard_units::connector::FieldMapper;
+    use apdl_poem::standard_units::connector::field_mapper::FieldMapper;
 
     let mapper = FieldMapper::new();
 
@@ -76,7 +76,7 @@ fn test_wildcard_enum_matching() {
 
 #[test]
 fn test_question_mark_wildcard() {
-    use apdl_poem::standard_units::connector::FieldMapper;
+    use apdl_poem::standard_units::connector::field_mapper::FieldMapper;
 
     let mapper = FieldMapper::new();
 
@@ -104,7 +104,7 @@ fn test_question_mark_wildcard() {
 
 #[test]
 fn test_complex_wildcard_patterns() {
-    use apdl_poem::standard_units::connector::FieldMapper;
+    use apdl_poem::standard_units::connector::field_mapper::FieldMapper;
 
     let mapper = FieldMapper::new();
 
