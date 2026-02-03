@@ -49,7 +49,9 @@ impl ConnectorParser {
         let mut header_pointers_str = String::new();
 
         // 解析各个字段
-        for line in content.lines() {
+        let mut lines = content.lines().peekable();
+
+        while let Some(line) = lines.next() {
             let line = line.trim();
             if line.is_empty() || line.starts_with("//") {
                 continue;
@@ -64,21 +66,185 @@ impl ConnectorParser {
             } else if line.starts_with("desc:") {
                 description = Self::extract_quoted_value(line)?;
             } else if line.starts_with("config:") {
-                // 解析配置内容
-                let config_content = Self::extract_braced_content_from_config(line)?.to_string();
+                // config 后面跟着一个花括号块，需要收集完整的内容
+                let mut config_block = String::from(line);
+                let mut brace_count = 0;
 
-                for config_line in config_content.lines() {
-                    let config_line = config_line.trim();
-                    if config_line.is_empty() || config_line.starts_with("//") {
+                // 计算当前行的花括号数量
+                let mut in_string = false;
+                let mut escape_next = false;
+
+                for c in line.chars() {
+                    if escape_next {
+                        escape_next = false;
                         continue;
                     }
 
-                    if config_line.starts_with("mappings:") {
-                        mappings_str = Self::extract_array_content(config_line)?;
-                    } else if config_line.starts_with("header_pointers:") {
-                        header_pointers_str =
-                            Self::extract_braced_content_from_config(config_line)?.to_string();
+                    match c {
+                        '\\' if in_string => escape_next = true,
+                        '"' => in_string = !in_string,
+                        '{' if !in_string => brace_count += 1,
+                        '}' if !in_string => brace_count -= 1,
+                        _ => {}
                     }
+                }
+
+                // 继续收集行直到括号平衡
+                while brace_count > 0 {
+                    if let Some(next_line) = lines.next() {
+                        let next_trimmed = next_line.trim();
+                        config_block.push_str(" ");
+                        config_block.push_str(next_trimmed);
+
+                        // 更新括号计数
+                        let mut in_string = false;
+                        let mut escape_next = false;
+
+                        for c in next_trimmed.chars() {
+                            if escape_next {
+                                escape_next = false;
+                                continue;
+                            }
+
+                            match c {
+                                '\\' if in_string => escape_next = true,
+                                '"' => in_string = !in_string,
+                                '{' if !in_string => brace_count += 1,
+                                '}' if !in_string => brace_count -= 1,
+                                _ => {}
+                            }
+                        }
+                    } else {
+                        return Err("Unmatched braces in config section".to_string());
+                    }
+                }
+
+                // config_block 包含了完整的 config: { ... } 内容，我们需要提取花括号内的内容
+                // 找到第一个 '{' 的位置并提取其内容
+                let mut brace_count = 0;
+                let mut in_string = false;
+                let mut escape_next = false;
+                let mut start_pos = None;
+                let mut end_pos = None;
+
+                for (i, c) in config_block.char_indices() {
+                    if escape_next {
+                        escape_next = false;
+                        continue;
+                    }
+
+                    match c {
+                        '\\' if in_string => escape_next = true,
+                        '"' => in_string = !in_string,
+                        '{' if !in_string => {
+                            if brace_count == 0 {
+                                start_pos = Some(i + 1); // 跳过 '{'
+                            }
+                            brace_count += 1;
+                        }
+                        '}' if !in_string => {
+                            brace_count -= 1;
+                            if brace_count == 0 {
+                                end_pos = Some(i);
+                                break; // 找到匹配的 '}'
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+
+                if let (Some(start), Some(end)) = (start_pos, end_pos) {
+                    let config_content = &config_block[start..end];
+
+                    // 为正确处理跨多行的数组，我们需要从 config_content 整体中查找
+                    // 而不是逐行处理，因为 mappings: [ 可能跨越多行
+
+                    // 查找 mappings 数组
+                    if let Some(mappings_pos) = config_content.find("mappings:") {
+                        // 从 mappings: 位置开始寻找完整的数组
+                        let from_mappings = &config_content[mappings_pos..];
+
+                        let mut bracket_count = 0;
+                        let mut in_string = false;
+                        let mut escape_next = false;
+                        let mut array_start = None;
+                        let mut array_end = None;
+
+                        for (i, c) in from_mappings.char_indices() {
+                            if escape_next {
+                                escape_next = false;
+                                continue;
+                            }
+
+                            match c {
+                                '\\' if in_string => escape_next = true,
+                                '"' => in_string = !in_string,
+                                '[' if !in_string => {
+                                    if bracket_count == 0 {
+                                        array_start = Some(i + 1); // 跳过 '['
+                                    }
+                                    bracket_count += 1;
+                                }
+                                ']' if !in_string => {
+                                    bracket_count -= 1;
+                                    if bracket_count == 0 {
+                                        array_end = Some(i);
+                                        break; // 找到匹配的 ']'
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        if let (Some(start), Some(end)) = (array_start, array_end) {
+                            mappings_str = from_mappings[start..end].to_string();
+                        } else {
+                            return Err("Could not extract mappings content".to_string());
+                        }
+                    }
+
+                    // 查找 header_pointers 对象（如果存在）
+                    if let Some(hp_pos) = config_content.find("header_pointers:") {
+                        let from_hp = &config_content[hp_pos..];
+
+                        let mut brace_count = 0;
+                        let mut in_string = false;
+                        let mut escape_next = false;
+                        let mut obj_start = None;
+                        let mut obj_end = None;
+
+                        for (i, c) in from_hp.char_indices() {
+                            if escape_next {
+                                escape_next = false;
+                                continue;
+                            }
+
+                            match c {
+                                '\\' if in_string => escape_next = true,
+                                '"' => in_string = !in_string,
+                                '{' if !in_string => {
+                                    if brace_count == 0 {
+                                        obj_start = Some(i + 1); // 跳过 '{'
+                                    }
+                                    brace_count += 1;
+                                }
+                                '}' if !in_string => {
+                                    brace_count -= 1;
+                                    if brace_count == 0 {
+                                        obj_end = Some(i);
+                                        break; // 找到匹配的 '}'
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        if let (Some(start), Some(end)) = (obj_start, obj_end) {
+                            header_pointers_str = from_hp[start..end].to_string();
+                        }
+                    }
+                } else {
+                    return Err("Could not extract config content".to_string());
                 }
             }
         }
@@ -281,55 +447,6 @@ impl ConnectorParser {
         }
 
         Ok(&text[1..end_pos - 1])
-    }
-
-    /// 从配置格式中提取花括号内容
-    fn extract_braced_content_from_config(line: &str) -> Result<&str, String> {
-        let colon_pos = line.find(':').ok_or("Missing colon in line")?;
-
-        let value_part = line[colon_pos + 1..].trim();
-
-        if !value_part.starts_with('{') {
-            return Err("Config value must start with {".to_string());
-        }
-
-        let mut brace_count = 0;
-        let mut in_string = false;
-        let mut escape_next = false;
-        let mut end_pos = 0;
-
-        for (i, c) in value_part.char_indices() {
-            if escape_next {
-                escape_next = false;
-                continue;
-            }
-
-            match c {
-                '\\' if in_string => {
-                    escape_next = true;
-                }
-                '"' => {
-                    in_string = !in_string;
-                }
-                '{' if !in_string => {
-                    brace_count += 1;
-                }
-                '}' if !in_string => {
-                    brace_count -= 1;
-                    if brace_count == 0 {
-                        end_pos = i + 1;
-                        break;
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        if brace_count != 0 {
-            return Err("Unmatched braces in config".to_string());
-        }
-
-        Ok(&value_part[1..end_pos - 1])
     }
 
     /// 从数组格式中提取方括号内容
