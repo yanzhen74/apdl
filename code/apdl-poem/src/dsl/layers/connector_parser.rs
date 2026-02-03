@@ -69,13 +69,22 @@ impl ConnectorParser {
 
         // 解析配置部分
         let config_content = properties.get("config").ok_or("Missing 'config' section")?;
+        //println!("DEBUG: config_content: {}", config_content);
 
         let config_obj = Self::parse_object(config_content.as_str())?;
+        //println!("DEBUG: config_obj keys: {:?}", config_obj.keys());
+        //if let Some(mappings_val) = config_obj.get("mappings") {
+        //    println!("DEBUG: mappings value: '{}'", mappings_val);
+        //}
 
         // 解析映射规则
         let mappings = if let Some(mappings_str) = config_obj.get("mappings") {
-            Self::parse_mappings(mappings_str)?
+            //println!("DEBUG: Found mappings string: '{}'", mappings_str);
+            let parsed_mappings = Self::parse_mappings(mappings_str)?;
+            //println!("DEBUG: Parsed {} mappings", parsed_mappings.len());
+            parsed_mappings
         } else {
+            //println!("DEBUG: No mappings found in config_obj");
             Vec::new()
         };
 
@@ -126,7 +135,11 @@ impl ConnectorParser {
         let mut chars = text.chars().peekable();
         while let Some(c) = chars.next() {
             if escape_next {
-                current_value.push(c);
+                if in_value {
+                    current_value.push(c);
+                } else if in_key {
+                    current_key.push(c);
+                }
                 escape_next = false;
                 continue;
             }
@@ -134,61 +147,117 @@ impl ConnectorParser {
             match c {
                 '\\' if in_string => {
                     escape_next = true;
+                    if in_value {
+                        current_value.push(c);
+                    } else if in_key {
+                        current_key.push(c);
+                    }
                     continue;
                 }
                 '"' => {
-                    in_string = !in_string;
-                    if in_key {
-                        continue; // Skip quote in key
+                    if in_value {
+                        // 检查是否是字符串的开始或结束
+                        if !in_string {
+                            // 开始字符串
+                            in_string = true;
+                        } else {
+                            // 结束字符串
+                            in_string = false;
+                        }
+                        // 不将引号添加到值中，除非它是转义的
+                        // （我们已经处理了转义情况）
+                    } else if in_key {
+                        current_key.push(c);
                     }
                 }
-                '{' if !in_string => brace_depth += 1,
+                '{' if !in_string => {
+                    brace_depth += 1;
+                    if in_value {
+                        current_value.push(c);
+                    } else if in_key {
+                        current_key.push(c);
+                    }
+                }
                 '}' if !in_string => {
                     if brace_depth > 0 {
                         brace_depth -= 1;
                     }
+                    if in_value {
+                        current_value.push(c);
+                    } else if in_key {
+                        current_key.push(c);
+                    }
                 }
-                '[' if !in_string => bracket_depth += 1,
+                '[' if !in_string => {
+                    bracket_depth += 1;
+                    if in_value {
+                        current_value.push(c);
+                    } else if in_key {
+                        current_key.push(c);
+                    }
+                }
                 ']' if !in_string => {
                     if bracket_depth > 0 {
                         bracket_depth -= 1;
                     }
+                    if in_value {
+                        current_value.push(c);
+                    } else if in_key {
+                        current_key.push(c);
+                    }
                 }
-                '(' if !in_string => paren_depth += 1,
+                '(' if !in_string => {
+                    paren_depth += 1;
+                    if in_value {
+                        current_value.push(c);
+                    } else if in_key {
+                        current_key.push(c);
+                    }
+                }
                 ')' if !in_string => {
                     if paren_depth > 0 {
                         paren_depth -= 1;
                     }
+                    if in_value {
+                        current_value.push(c);
+                    } else if in_key {
+                        current_key.push(c);
+                    }
                 }
                 ':' if !in_string && brace_depth == 0 && bracket_depth == 0 && paren_depth == 0 => {
-                    in_key = false;
-                    in_value = true;
-                    last_char_was_colon = true;
+                    if in_key {
+                        in_key = false;
+                        in_value = true;
+                        last_char_was_colon = true;
+                    } else if in_value {
+                        // 如果在值中又遇到冒号，且不在字符串中且外部无嵌套，则添加到值中
+                        current_value.push(c);
+                    }
                     continue;
                 }
                 ';' if !in_string && brace_depth == 0 && bracket_depth == 0 && paren_depth == 0 => {
-                    if !current_key.is_empty() && !current_value.is_empty() {
-                        properties.insert(
-                            current_key.trim().to_string(),
-                            current_value.trim().to_string(),
-                        );
+                    if in_value && !current_key.is_empty() && !current_value.is_empty() {
+                        // 对值进行处理：去除可能的外部引号
+                        let processed_value = Self::process_value_string(current_value.trim());
+                        properties.insert(current_key.trim().to_string(), processed_value);
                         current_key.clear();
                         current_value.clear();
                         in_key = true;
                         in_value = false;
+                        in_string = false; // 重置字符串状态
                     }
                     continue;
                 }
                 ',' if !in_string && brace_depth == 0 && bracket_depth == 0 && paren_depth == 0 => {
-                    if !current_key.is_empty() && !current_value.is_empty() {
-                        properties.insert(
-                            current_key.trim().to_string(),
-                            current_value.trim().to_string(),
-                        );
+                    if in_value && !current_key.is_empty() && !current_value.is_empty() {
+                        // 对值进行处理：去除可能的外部引号
+                        let processed_value = Self::process_value_string(current_value.trim());
+                        properties.insert(current_key.trim().to_string(), processed_value);
                         current_key.clear();
                         current_value.clear();
                         in_key = true;
                         in_value = false;
+                        in_string = false; // 重置字符串状态
                     }
                     continue;
                 }
@@ -208,13 +277,28 @@ impl ConnectorParser {
 
         // 添加最后一个属性
         if !current_key.is_empty() && !current_value.is_empty() {
-            properties.insert(
-                current_key.trim().to_string(),
-                current_value.trim().to_string(),
-            );
+            let processed_value = Self::process_value_string(current_value.trim());
+            properties.insert(current_key.trim().to_string(), processed_value);
         }
 
         Ok(properties)
+    }
+
+    /// 处理值字符串，去除外部引号（如果存在）
+    fn process_value_string(value: &str) -> String {
+        let trimmed = value.trim();
+
+        // 检查是否是字符串字面量（以引号开头和结尾）
+        if trimmed.len() >= 2 && trimmed.starts_with('"') && trimmed.ends_with('"') {
+            // 去除外部引号
+            trimmed[1..trimmed.len() - 1].to_string()
+        } else if trimmed.len() >= 2 && trimmed.starts_with('\'') && trimmed.ends_with('\'') {
+            // 处理单引号字符串
+            trimmed[1..trimmed.len() - 1].to_string()
+        } else {
+            // 不是字符串字面量，返回原值
+            trimmed.to_string()
+        }
     }
 
     /// 解析对象（花括号内容）
@@ -227,14 +311,25 @@ impl ConnectorParser {
     fn parse_mappings(mappings_text: &str) -> Result<Vec<FieldMappingEntry>, String> {
         // 检查是否是数组格式 [ ... ]
         let trimmed = mappings_text.trim();
+
         if trimmed.starts_with('[') && trimmed.ends_with(']') {
             // 提取方括号内容
             let content = Self::extract_array_content(trimmed)?;
             Self::parse_mappings_from_content(&content)
-        } else {
-            // 如果不是数组格式，尝试提取花括号内容（向后兼容）
-            let content = Self::extract_braced_content(mappings_text)?;
+        } else if trimmed.starts_with('{') && trimmed.ends_with('}') {
+            // 如果是花括号格式，提取内容并解析
+            let content = Self::extract_braced_content(trimmed)?;
             Self::parse_mappings_from_content(&content)
+        } else {
+            // 尝试两种方式提取内容
+            if let Ok(content) = Self::extract_array_content(trimmed) {
+                Self::parse_mappings_from_content(&content)
+            } else if let Ok(content) = Self::extract_braced_content(trimmed) {
+                Self::parse_mappings_from_content(&content)
+            } else {
+                // 如果都不是，则直接解析原始内容
+                Self::parse_mappings_from_content(trimmed)
+            }
         }
     }
 
@@ -248,13 +343,17 @@ impl ConnectorParser {
         for item in items {
             // 检查item是否已经是用大括号包围的对象格式
             let clean_item = item.trim();
-            let obj_content = if clean_item.starts_with('{') && clean_item.ends_with('}') {
-                clean_item
-            } else {
-                &format!("{{{}}}", clean_item)
-            };
+            if clean_item.is_empty() {
+                continue; // 跳过空项
+            }
 
-            let obj_props = Self::parse_object(obj_content)?;
+            // 尝试解析为对象
+            let obj_props = if clean_item.starts_with('{') && clean_item.ends_with('}') {
+                Self::parse_object(clean_item)?
+            } else {
+                // 如果不是完整的对象格式，尝试包装
+                Self::parse_object(&format!("{{{}}}", clean_item))?
+            };
 
             let source_field = obj_props
                 .get("source_field")
