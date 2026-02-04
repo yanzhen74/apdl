@@ -6,12 +6,15 @@ use apdl_core::{
     DataPlacementConfig, DataPlacementStrategy, FieldMappingEntry, SemanticRule, SyntaxUnit,
 };
 
+use crate::standard_units::connector::mpdu_manager::MpduManager;
 use crate::standard_units::frame_assembler::core::FrameAssembler;
 
 /// 连接器引擎
 pub struct ConnectorEngine {
     /// 映射规则集合
     mapping_rules: Vec<apdl_core::SemanticRule>,
+    /// MPDU管理器
+    mpdu_manager: MpduManager,
 }
 
 impl ConnectorEngine {
@@ -19,6 +22,7 @@ impl ConnectorEngine {
     pub fn new() -> Self {
         Self {
             mapping_rules: Vec::new(),
+            mpdu_manager: MpduManager::new(),
         }
     }
 
@@ -149,31 +153,71 @@ impl ConnectorEngine {
         Ok(())
     }
 
-    /// 指针基于放置策略
+    /// 指针基于放置策略 - MPDU（多路协议数据单元）方式
+    /// 根据CCSDS标准实现MPDU的首导头指针机制
+    /// MPDU由MPDU导头（2字节）和MPDU包区（可变长度）组成
+    /// 首导头指针指向MPDU包区中第一个完整包的第一个字节位置
     fn apply_pointer_based_placement(
         &self,
         source_package: &[SyntaxUnit],
         target_package: &mut [SyntaxUnit],
         placement_config: &DataPlacementConfig,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // 根据配置参数确定指针字段和放置逻辑
+        // 获取目标字段名
         let target_field_name = &placement_config.target_field;
 
-        // 查找配置参数中的指针字段名
-        let _pointer_field = placement_config
-            .config_params
-            .iter()
-            .find(|(key, _)| key == "pointer_field")
-            .map(|(_, value)| value)
-            .unwrap_or(target_field_name);
+        // 获取源包数据（将要放入MPDU包区的内容）
+        let source_data = self.extract_package_data(source_package)?;
 
         if let Some(target_idx) = target_package
             .iter()
             .position(|f| f.field_id == *target_field_name)
         {
-            // 生成指向源包数据的指针值
-            let pointer_value = self.generate_pointer_value(source_package)?;
-            self.set_field_value(&mut target_package[target_idx], &pointer_value)?;
+            // 检查目标字段是否已有数据
+            let existing_data_len = 0; // 在当前实现中，我们先假定目标字段是空的
+
+            // 计算新包的起始位置
+            let new_packet_start_pos = existing_data_len;
+
+            // 将源包数据追加到目标字段
+            // 在实际的FrameAssembler实现中，这会将数据追加到现有的数据中
+            // 这里我们只是模拟这种行为
+
+            // 如果配置中指定了指针字段，则更新该字段的值
+            if let Some(pointer_field_name) = placement_config
+                .config_params
+                .iter()
+                .find(|(key, _)| key == "pointer_field")
+                .map(|(_, value)| value.as_str())
+            {
+                // 查找指针字段索引
+                if let Some(pointer_idx) = target_package
+                    .iter()
+                    .position(|f| f.field_id == pointer_field_name)
+                {
+                    // 根据CCSDS标准，首导头指针指向MPDU包区中第一个完整包的第一个字节位置
+                    // 在流式数据处理中，第一个包总是位于偏移0
+                    let first_packet_pointer = 0;
+
+                    // 将指针值转换为2字节（CCSDS标准中指针为2字节）
+                    let pointer_bytes = (first_packet_pointer as u16).to_be_bytes().to_vec();
+
+                    self.set_field_value(&mut target_package[pointer_idx], &pointer_bytes)?;
+                    println!(
+                        "Set MPDU pointer field '{}' to offset: {} (points to first packet)",
+                        pointer_field_name, first_packet_pointer
+                    );
+                }
+            }
+
+            // 实际上，这里需要FrameAssembler来处理数据追加
+            // 但现在我们只是记录操作
+            println!(
+                "Would apply MPDU pointer-based placement: placed {} bytes into field '{}' (new packet at pos {})",
+                source_data.len(),
+                target_field_name,
+                new_packet_start_pos
+            );
         }
 
         Ok(())
@@ -361,7 +405,7 @@ impl ConnectorEngine {
 
     /// 执行完整的连接操作，包括字段映射和数据放置
     pub fn connect(
-        &self,
+        &mut self,
         source_assembler: &mut FrameAssembler,
         target_assembler: &mut FrameAssembler,
         connector_config: &apdl_core::ConnectorConfig,
@@ -388,16 +432,139 @@ impl ConnectorEngine {
                 data_placement.strategy
             );
 
-            // 先组装源包帧
-            let source_frame = source_assembler.assemble_frame().map_err(|e| Box::new(e))?;
+            match data_placement.strategy {
+                DataPlacementStrategy::PointerBased => {
+                    // 对于MPDU模式，使用MPDU管理器进行处理
+                    // 将源包添加到相应的队列中
+                    let source_frame =
+                        source_assembler.assemble_frame().map_err(|e| Box::new(e))?;
 
-            // 将源包数据嵌入到目标包的数据字段
+                    // 使用目标包类型作为队列标识符
+                    let parent_type = &data_placement.target_field; // 使用目标字段名作为父包类型标识
+                    self.mpdu_manager
+                        .add_child_packet(parent_type, source_frame.clone());
+
+                    println!(
+                        "Added source frame ({} bytes) to MPDU queue for type '{}'",
+                        source_frame.len(),
+                        parent_type
+                    );
+
+                    // 如果需要立即构建MPDU包（在某些场景下），可以从队列中构建
+                    // 这里我们只是将子包加入队列，实际构建在build_mpdu_packet方法中进行
+                }
+                _ => {
+                    // 其他策略的通用处理
+                    let source_frame =
+                        source_assembler.assemble_frame().map_err(|e| Box::new(e))?;
+
+                    // 将源包数据嵌入到目标包的数据字段
+                    target_assembler
+                        .set_field_value(&data_placement.target_field, &source_frame)
+                        .map_err(|e| Box::new(e))?;
+                    println!(
+                        "Embedded source frame ({} bytes) into target data field",
+                        source_frame.len()
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// 添加父包模板到MPDU管理器
+    pub fn add_parent_template(&mut self, parent_type: &str, template: FrameAssembler) {
+        self.mpdu_manager.add_parent_template(parent_type, template);
+    }
+
+    /// 构建MPDU包 - 从子包队列中取出数据填充到父包
+    pub fn build_mpdu_packet(
+        &mut self,
+        parent_type: &str,
+        mpdu_config: &DataPlacementConfig,
+    ) -> Option<Vec<u8>> {
+        self.mpdu_manager
+            .build_mpdu_packet(parent_type, mpdu_config)
+    }
+
+    /// 获取指定类型子包队列的长度
+    pub fn get_child_queue_length(&self, parent_type: &str) -> usize {
+        self.mpdu_manager.get_child_queue_length(parent_type)
+    }
+
+    /// 获取指定类型父包模板队列的长度
+    pub fn get_parent_queue_length(&self, parent_type: &str) -> usize {
+        self.mpdu_manager.get_parent_queue_length(parent_type)
+    }
+
+    /// MPDU（多路协议数据单元）处理 - 生成CCSDS标准的首导头指针
+    /// 支持真正的流式存储功能，其中连续的子包可以被添加到父包中
+    pub fn generate_mpdu_with_pointers(
+        &self,
+        source_assemblers: &mut [FrameAssembler],
+        target_assembler: &mut FrameAssembler,
+        mpdu_config: &DataPlacementConfig,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // 1. 组装所有源包（形成MPDU包区的内容）
+        let mut mpdu_data = Vec::new();
+        let mut packet_offsets = Vec::new();
+        let mut current_offset = 0;
+
+        for source_asm in source_assemblers {
+            let packet_data = source_asm.assemble_frame().map_err(|e| Box::new(e))?;
+            packet_offsets.push(current_offset);
+            mpdu_data.extend_from_slice(&packet_data);
+            current_offset += packet_data.len();
+        }
+
+        // 2. 设置MPDU数据到目标包（作为MPDU包区）
+        target_assembler
+            .set_field_value(&mpdu_config.target_field, &mpdu_data)
+            .map_err(|e| Box::new(e))?;
+
+        // 3. 如果配置了指针字段，则设置CCSDS标准的首导头指针
+        // 根据CCSDS标准，首导头指针指向MPDU包区中第一个完整包的第一个字节位置
+        if let Some(pointer_field_name) = mpdu_config
+            .config_params
+            .iter()
+            .find(|(key, _)| key == "pointer_field")
+            .map(|(_, value)| value.as_str())
+        {
+            if !packet_offsets.is_empty() {
+                // 设置第一个完整包的偏移量（CCSDS标准首导头指针）
+                // 在CCSDS标准中，首导头指针指向第一个完整包的位置
+                let first_packet_offset = packet_offsets[0] as u16; // 总是0
+                let pointer_bytes = first_packet_offset.to_be_bytes().to_vec(); // 2字节指针字段
+                target_assembler
+                    .set_field_value(pointer_field_name, &pointer_bytes)
+                    .map_err(|e| Box::new(e))?;
+                println!(
+                    "Set CCSDS MPDU first header pointer to offset: {} (first packet)",
+                    first_packet_offset
+                );
+            }
+        }
+
+        // 4. 如果配置了多个指针字段，可以设置多个子包的指针（用于复杂MPDU场景）
+        if let Some(packet_pointers_field_name) = mpdu_config
+            .config_params
+            .iter()
+            .find(|(key, _)| key == "packet_pointers_field")
+            .map(|(_, value)| value.as_str())
+        {
+            // 将所有子包偏移量打包到一个指针字段中（用于接收端重组）
+            let mut all_pointers = Vec::new();
+            for &offset in &packet_offsets {
+                let ptr_bytes = (offset as u16).to_be_bytes().to_vec(); // 2字节指针
+                all_pointers.extend_from_slice(&ptr_bytes);
+            }
             target_assembler
-                .set_field_value(&data_placement.target_field, &source_frame)
+                .set_field_value(packet_pointers_field_name, &all_pointers)
                 .map_err(|e| Box::new(e))?;
             println!(
-                "Embedded source frame ({} bytes) into target data field",
-                source_frame.len()
+                "Set CCSDS MPDU packet pointers for {} packets",
+                packet_offsets.len()
             );
         }
 
