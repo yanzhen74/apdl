@@ -362,7 +362,7 @@ fn test_full_stack_integration() {
     println!("Set initial parent packet field values");
 
     // 8. 使用连接器引擎执行完整的连接操作
-    let connector_engine = ConnectorEngine::new();
+    let mut connector_engine = ConnectorEngine::new();
     println!("Created connector engine");
 
     // 9. 使用连接器引擎应用字段映射和数据放置
