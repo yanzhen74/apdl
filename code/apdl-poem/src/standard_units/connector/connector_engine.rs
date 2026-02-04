@@ -6,6 +6,8 @@ use apdl_core::{
     DataPlacementConfig, DataPlacementStrategy, FieldMappingEntry, SemanticRule, SyntaxUnit,
 };
 
+use crate::standard_units::frame_assembler::core::FrameAssembler;
+
 /// 连接器引擎
 pub struct ConnectorEngine {
     /// 映射规则集合
@@ -354,6 +356,51 @@ impl ConnectorEngine {
         // 由于SyntaxUnit是不可变的，我们需要一个不同的方法来更新值
         // 这里只是示意
         println!("Setting field {} to value {:?}", field.field_id, value);
+        Ok(())
+    }
+
+    /// 执行完整的连接操作，包括字段映射和数据放置
+    pub fn connect(
+        &self,
+        source_assembler: &mut FrameAssembler,
+        target_assembler: &mut FrameAssembler,
+        connector_config: &apdl_core::ConnectorConfig,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // 1. 应用字段映射
+        for mapping in &connector_config.mappings {
+            // 获取源字段值
+            if let Ok(source_value) = source_assembler.get_field_value(&mapping.source_field) {
+                // 设置目标字段值
+                target_assembler
+                    .set_field_value(&mapping.target_field, &source_value)
+                    .map_err(|e| Box::new(e))?;
+                println!(
+                    "Mapped {} to {} with value {:?}",
+                    mapping.source_field, mapping.target_field, source_value
+                );
+            }
+        }
+
+        // 2. 应用数据放置策略
+        if let Some(data_placement) = &connector_config.data_placement {
+            println!(
+                "Applying data placement strategy: {:?}",
+                data_placement.strategy
+            );
+
+            // 先组装源包帧
+            let source_frame = source_assembler.assemble_frame().map_err(|e| Box::new(e))?;
+
+            // 将源包数据嵌入到目标包的数据字段
+            target_assembler
+                .set_field_value(&data_placement.target_field, &source_frame)
+                .map_err(|e| Box::new(e))?;
+            println!(
+                "Embedded source frame ({} bytes) into target data field",
+                source_frame.len()
+            );
+        }
+
         Ok(())
     }
 }

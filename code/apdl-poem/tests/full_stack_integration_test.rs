@@ -340,42 +340,19 @@ fn test_full_stack_integration() {
         .unwrap(); // Will be calculated
     println!("Set initial parent packet field values");
 
-    // 8. 使用连接器引擎应用字段映射
-    let _connector_engine = ConnectorEngine::new();
+    // 8. 使用连接器引擎执行完整的连接操作
+    let connector_engine = ConnectorEngine::new();
     println!("Created connector engine");
 
-    // 9. 应用字段映射
-    for mapping in &connector_definition.config.mappings {
-        // 获取源字段值
-        if let Ok(source_value) = child_assembler.get_field_value(&mapping.source_field) {
-            // 设置目标字段值
-            parent_assembler
-                .set_field_value(&mapping.target_field, &source_value)
-                .unwrap();
-            println!(
-                "Mapped {} to {} with value {:?}",
-                mapping.source_field, mapping.target_field, source_value
-            );
-        }
-    }
-
-    // 10. 应用数据放置策略
-    if let Some(data_placement) = &connector_definition.config.data_placement {
-        println!(
-            "Applying data placement strategy: {:?}",
-            data_placement.strategy
-        );
-
-        // 将子包数据嵌入到父包的数据字段
-        // 这里我们使用子包的完整帧数据
-        parent_assembler
-            .set_field_value("data", &child_frame)
-            .unwrap();
-        println!(
-            "Embedded child frame ({} bytes) into parent data field",
-            child_frame.len()
-        );
-    }
+    // 9. 使用连接器引擎应用字段映射和数据放置
+    connector_engine
+        .connect(
+            &mut child_assembler,
+            &mut parent_assembler,
+            &connector_definition.config,
+        )
+        .expect("Failed to connect packages");
+    println!("Applied field mapping and data placement via connector engine");
 
     // 11. 重新计算封装包长度
     // 计算除了FECF之外的总长度
