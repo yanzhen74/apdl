@@ -164,9 +164,7 @@ fn test_full_stack_integration() {
                                 "Global": "encap"
                             },
                             "cover": "EntireField",
-                            "constraint": {
-                                "Range": [0, 65535]
-                            },
+                            "constraint": null,
                             "alg": null,
                             "associate": [],
                             "desc": "Encapsulation length"
@@ -208,7 +206,21 @@ fn test_full_stack_integration() {
                             "desc": "Frame Error Control Field"
                         }
                     ],
-                    "rules": []
+                    "rules": [
+                        {
+                            "LengthRule": {
+                                "field_name": "encap_length",
+                                "expression": "total_length - 2"
+                            }
+                        },
+                        {
+                            "ChecksumRange": {
+                                "algorithm": "XOR",
+                                "start_field": "vcid",
+                                "end_field": "data"
+                            }
+                        }
+                    ]
                 }
             ]
         }
@@ -306,6 +318,15 @@ fn test_full_stack_integration() {
         parent_assembler.fields.len()
     );
 
+    // 添加父包的语义规则到assembler
+    for rule in &parent_package.layers[0].rules {
+        parent_assembler.add_semantic_rule(rule.clone());
+    }
+    println!(
+        "Added {} semantic rules to parent assembler",
+        parent_package.layers[0].rules.len()
+    );
+
     // 5. 设置子包字段值
     // 注意：如果字段在定义中具有FixedValue约束，则无需显式调用set_field_value
     child_assembler.set_field_value("version", &[0x01]).unwrap(); // Version 1
@@ -354,66 +375,17 @@ fn test_full_stack_integration() {
         .expect("Failed to connect packages");
     println!("Applied field mapping and data placement via connector engine");
 
-    // 11. 重新计算封装包长度
-    // 计算除了FECF之外的总长度
-    let total_len_except_fecf: usize = parent_assembler
-        .fields
-        .iter()
-        .filter(|f| f.field_id != "fecf")
-        .map(|f| {
-            let size = parent_assembler.get_field_size(f).unwrap_or(1);
-            println!("Field {} size: {}", f.field_id, size);
-            size
-        })
-        .sum();
+    // 11. 现在长度和校验和将由语义规则自动处理，无需手动计算
+    // 长度规则和校验和规则将在assemble_frame期间自动应用
 
-    let len_bytes = [
-        (total_len_except_fecf >> 8) as u8,
-        (total_len_except_fecf & 0xFF) as u8,
-    ];
-    parent_assembler
-        .set_field_value("encap_length", &len_bytes)
-        .unwrap();
-    println!("Updated encapsulation length to: {}", total_len_except_fecf);
-
-    // 12. 计算FECF (Frame Error Control Field) - 简单的XOR校验
-    // 先收集除FECF外的数据
-    let mut data_for_checksum = Vec::new();
-    for field in &parent_assembler.fields {
-        if field.field_id != "fecf" {
-            if let Ok(field_bytes) = parent_assembler.get_field_value(&field.field_id) {
-                data_for_checksum.extend_from_slice(&field_bytes);
-                println!("Adding field {} data: {:?}", field.field_id, field_bytes);
-            } else {
-                // 如果字段值未设置，使用默认值
-                let size = parent_assembler.get_field_size(field).unwrap_or(1);
-                let default_bytes = vec![0; size];
-                data_for_checksum.extend_from_slice(&default_bytes);
-                println!(
-                    "Adding default data for field {}: {:?}",
-                    field.field_id, default_bytes
-                );
-            }
-        }
-    }
-
-    let xor_checksum = data_for_checksum
-        .iter()
-        .fold(0u16, |acc, &x| acc ^ (x as u16));
-    let fecf_bytes = [(xor_checksum >> 8) as u8, (xor_checksum & 0xFF) as u8];
-    parent_assembler
-        .set_field_value("fecf", &fecf_bytes)
-        .unwrap();
-    println!("Calculated and set FECF value: 0x{:04X}", xor_checksum);
-
-    // 13. 组装最终的父包帧
+    // 12. 组装最终的父包帧 - 长度和校验和将由语义规则自动计算
     let parent_frame = parent_assembler.assemble_frame().unwrap();
     println!(
         "Parent frame assembled, length: {} bytes",
         parent_frame.len()
     );
 
-    // 14. 验证结果
+    // 13. 验证结果
     assert!(!parent_frame.is_empty(), "Parent frame should not be empty");
     assert!(
         parent_frame.len() > child_frame.len(),
@@ -422,7 +394,7 @@ fn test_full_stack_integration() {
         child_frame.len()
     );
 
-    // 15. 验证子包数据确实嵌入到了父包中
+    // 14. 验证子包数据确实嵌入到了父包中
     let data_field_pos = parent_assembler.field_index.get("data").unwrap();
     let data_field = &parent_assembler.fields[*data_field_pos];
     let data_field_size = parent_assembler.get_field_size(data_field).unwrap();
@@ -448,7 +420,7 @@ fn test_full_stack_integration() {
         );
     }
 
-    // 16. 额外验证：检查长度字段是否正确设置
+    // 15. 额外验证：检查长度字段是否正确设置
     let encap_length_value = parent_assembler.get_field_value("encap_length").unwrap();
     let calculated_length = ((encap_length_value[0] as u16) << 8) | (encap_length_value[1] as u16);
 
