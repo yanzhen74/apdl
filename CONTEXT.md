@@ -63,6 +63,14 @@ APDL (APDS Protocol Definition Language) 是一个面向航天领域的协议定
 - **字段映射解析器**: `field_mapping_parser` 模块
 - **DSL 解析器**: `dsl_parser` 模块
 
+#### 4. 连接器与MPDU系统
+- **连接器引擎**: `connector_engine` 模块，负责字段映射和数据放置
+- **MPDU管理器**: `mpdu_manager` 模块，实现CCSDS标准的多路协议数据单元
+- **多路缓存队列**: 支持子包和父包模板的分类缓存管理
+- **跨包分割处理**: 支持子包跨MPDU包分割和重组
+- **填充码管理**: 符合CCSDS标准的填充码生成和处理
+- **首导头指针**: 符合CCSDS标准的首导头指针机制
+
 #### 4. Frame Assembler 系统
 - **23 个规则处理器**: 每个语义规则对应一个处理器
 - **TODO 标记系统**: 在所有规则处理器中添加了 TODO 注释
