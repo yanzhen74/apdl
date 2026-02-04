@@ -2,10 +2,7 @@
 //!
 //! 包含 FrameAssembler 结构体定义和基础功能方法
 
-use apdl_core::{
-    LengthUnit, ProtocolError, SemanticRule,
-    SyntaxUnit,
-};
+use apdl_core::{LengthUnit, ProtocolError, SemanticRule, SyntaxUnit, UnitType};
 use std::collections::HashMap;
 
 /// 协议帧组装器
@@ -15,6 +12,8 @@ pub struct FrameAssembler {
     pub field_index: HashMap<String, usize>,
     // 添加字段值存储
     pub field_values: HashMap<String, Vec<u8>>,
+    // 添加bit字段值存储
+    pub bit_field_values: HashMap<String, u8>,
 }
 
 impl Default for FrameAssembler {
@@ -30,6 +29,7 @@ impl FrameAssembler {
             semantic_rules: Vec::new(),
             field_index: HashMap::new(),
             field_values: HashMap::new(),
+            bit_field_values: HashMap::new(),
         }
     }
 
@@ -48,13 +48,45 @@ impl FrameAssembler {
 
     /// 组装协议帧
     pub fn assemble_frame(&mut self) -> Result<Vec<u8>, ProtocolError> {
-        // 两阶段处理：第一阶段组装基础帧，第二阶段应用长度和CRC规则
-        let mut frame_data = Vec::new();
+        // 重新设计打包逻辑：按照添加顺序处理字段，但将所有bit字段累积打包
+        // 期望结果：bit field1, byte field, bit field2, bit field3 -> [byte field, all bits packed together]
 
-        // 第一阶段：按照字段顺序依次组装基础帧（不应用长度和CRC规则）
+        let mut frame_data = Vec::new();
+        let mut bit_buffer: u8 = 0; // 用于收集所有bit的缓冲区
+        let mut total_bits_used: u8 = 0; // 当前缓冲区中已使用的bit总数
+
+        // 按顺序处理所有字段
         for field in &self.fields {
-            let field_bytes = self.get_field_bytes(&field.field_id)?;
-            frame_data.extend_from_slice(&field_bytes);
+            if let UnitType::Bit(bits) = field.unit_type {
+                // 获取bit字段值
+                let bit_value = self.get_bit_field_value(&field.field_id)?;
+
+                // 验证bit值不超过字段大小限制
+                let max_value = (1 << bits) - 1;
+                if bit_value > max_value {
+                    return Err(ProtocolError::ValueOutOfRange(format!(
+                        "Bit field {} value {} exceeds maximum value {}",
+                        field.field_id, bit_value, max_value
+                    )));
+                }
+
+                // 将bit值添加到累积缓冲区中
+                // 按顺序放置：先出现的bit放在高位，后出现的bit放在低位
+                let shifted_value = (bit_value & ((1 << bits) - 1)) << (8 - total_bits_used - bits);
+                bit_buffer |= shifted_value;
+                total_bits_used += bits;
+
+                // 如果累计的bit数达到8位，就将这个字节添加到帧的末尾（暂存）
+            } else {
+                // 对于非bit字段，直接添加到帧数据中
+                let field_bytes = self.get_field_bytes(&field.field_id)?;
+                frame_data.extend_from_slice(&field_bytes);
+            }
+        }
+
+        // 最后将所有累积的bit打包到一起，添加到帧的末尾
+        if total_bits_used > 0 {
+            frame_data.push(bit_buffer);
         }
 
         // 第二阶段：应用长度和CRC等需要在完整帧基础上计算的规则
@@ -129,12 +161,48 @@ impl FrameAssembler {
     /// 获取字段值
     pub fn get_field_value(&self, field_name: &str) -> Result<Vec<u8>, ProtocolError> {
         let clean_field_name = field_name.trim_start_matches("field: ").trim();
-        self.field_values
-            .get(clean_field_name)
-            .cloned()
-            .ok_or_else(|| {
-                ProtocolError::FieldNotFound(format!("Field value not found: {clean_field_name}"))
-            })
+        // 首先检查是否已有显式设置的值
+        if let Some(bytes) = self.field_values.get(clean_field_name) {
+            Ok(bytes.clone())
+        } else {
+            // 如果没有显式设置的值，检查字段定义中是否有固定值约束
+            if let Some(&index) = self.field_index.get(clean_field_name) {
+                if let Some(field) = self.fields.get(index) {
+                    // 检查字段约束中是否有固定值
+                    if let Some(constraint) = &field.constraint {
+                        if let apdl_core::Constraint::FixedValue(fixed_val) = constraint {
+                            // 如果有固定值约束，使用该值作为默认值
+                            let size = self.get_field_size(field)?;
+                            // 将固定值转换为指定长度的字节数组
+                            let mut bytes = Vec::with_capacity(size);
+                            let mut val = *fixed_val;
+                            for _ in 0..size {
+                                bytes.push((val & 0xFF) as u8);
+                                val >>= 8;
+                            }
+                            bytes.reverse(); // 高位在前
+                            Ok(bytes)
+                        } else {
+                            // 如果不是固定值约束，返回零填充的默认值
+                            let size = self.get_field_size(field)?;
+                            Ok(vec![0; size])
+                        }
+                    } else {
+                        // 没有约束定义，返回零填充的默认值
+                        let size = self.get_field_size(field)?;
+                        Ok(vec![0; size])
+                    }
+                } else {
+                    Err(ProtocolError::FieldNotFound(format!(
+                        "Field definition not found: {clean_field_name}"
+                    )))
+                }
+            } else {
+                Err(ProtocolError::FieldNotFound(format!(
+                    "Field not found: {clean_field_name}"
+                )))
+            }
+        }
     }
 
     /// 获取字段字节
@@ -143,11 +211,33 @@ impl FrameAssembler {
         if let Some(bytes) = self.field_values.get(clean_field_name) {
             Ok(bytes.clone())
         } else {
-            // 如果字段值未设置，返回默认值
+            // 如果字段值未设置，检查字段定义中是否有固定值约束作为默认值
             if let Some(&index) = self.field_index.get(clean_field_name) {
                 if let Some(field) = self.fields.get(index) {
-                    let size = self.get_field_size(field)?;
-                    Ok(vec![0; size])
+                    // 检查字段约束中是否有固定值
+                    if let Some(constraint) = &field.constraint {
+                        if let apdl_core::Constraint::FixedValue(fixed_val) = constraint {
+                            // 如果有固定值约束，使用该值作为默认值
+                            let size = self.get_field_size(field)?;
+                            // 将固定值转换为指定长度的字节数组
+                            let mut bytes = Vec::with_capacity(size);
+                            let mut val = *fixed_val;
+                            for _ in 0..size {
+                                bytes.push((val & 0xFF) as u8);
+                                val >>= 8;
+                            }
+                            bytes.reverse(); // 高位在前
+                            Ok(bytes)
+                        } else {
+                            // 如果不是固定值约束，返回零填充的默认值
+                            let size = self.get_field_size(field)?;
+                            Ok(vec![0; size])
+                        }
+                    } else {
+                        // 没有约束定义，返回零填充的默认值
+                        let size = self.get_field_size(field)?;
+                        Ok(vec![0; size])
+                    }
                 } else {
                     Err(ProtocolError::FieldNotFound(format!(
                         "Field definition not found: {clean_field_name}"
@@ -164,7 +254,15 @@ impl FrameAssembler {
     /// 获取字段大小
     pub fn get_field_size(&self, field: &SyntaxUnit) -> Result<usize, ProtocolError> {
         match field.length.unit {
-            LengthUnit::Bit => Ok(field.length.size.div_ceil(8)), // 向上取整到字节
+            LengthUnit::Bit => {
+                // 对于bit字段，如果字段类型是Bit，我们返回字节大小（向上取整）
+                // 但如果我们要做真正的bit打包，需要特别处理
+                if let UnitType::Bit(bits) = field.unit_type {
+                    Ok(bits.div_ceil(8) as usize) // bits向上取整到字节
+                } else {
+                    Ok(field.length.size.div_ceil(8)) // 向上取整到字节
+                }
+            }
             LengthUnit::Byte => Ok(field.length.size),
             LengthUnit::Dynamic => {
                 // 对于动态长度字段，尝试从已存储的值中获取大小
@@ -251,6 +349,90 @@ impl FrameAssembler {
             ));
         }
         Ok(true)
+    }
+
+    /// 设置bit字段值
+    pub fn set_bit_field_value(
+        &mut self,
+        field_name: &str,
+        value: u8,
+    ) -> Result<(), ProtocolError> {
+        let clean_field_name = field_name.trim_start_matches("field: ").trim();
+
+        if let Some(&index) = self.field_index.get(clean_field_name) {
+            if let Some(field) = self.fields.get(index) {
+                // 检查字段是否为bit类型
+                if let UnitType::Bit(bits) = field.unit_type {
+                    // 验证值是否适合指定位数
+                    let max_value = (1 << bits) - 1; // 2^bits - 1
+                    if value > max_value as u8 {
+                        return Err(ProtocolError::ValueOutOfRange(format!(
+                            "Value {} exceeds maximum value {} for {}-bit field {}",
+                            value, max_value, bits, clean_field_name
+                        )));
+                    }
+
+                    self.bit_field_values
+                        .insert(clean_field_name.to_string(), value);
+                    println!("Setting bit field {} to value: {}", clean_field_name, value);
+                    Ok(())
+                } else {
+                    Err(ProtocolError::TypeError(format!(
+                        "Field {} is not a bit field, it's {:?}",
+                        clean_field_name, field.unit_type
+                    )))
+                }
+            } else {
+                Err(ProtocolError::FieldNotFound(format!(
+                    "Field definition not found: {clean_field_name}"
+                )))
+            }
+        } else {
+            Err(ProtocolError::FieldNotFound(format!(
+                "Field not found: {clean_field_name}"
+            )))
+        }
+    }
+
+    /// 获取bit字段值
+    pub fn get_bit_field_value(&self, field_name: &str) -> Result<u8, ProtocolError> {
+        let clean_field_name = field_name.trim_start_matches("field: ").trim();
+
+        if let Some(&index) = self.field_index.get(clean_field_name) {
+            if let Some(field) = self.fields.get(index) {
+                // 检查字段是否为bit类型
+                if let UnitType::Bit(_) = field.unit_type {
+                    // 首先检查显式设置的值
+                    if let Some(value) = self.bit_field_values.get(clean_field_name) {
+                        Ok(*value)
+                    } else {
+                        // 检查是否有固定值约束
+                        if let Some(constraint) = &field.constraint {
+                            if let apdl_core::Constraint::FixedValue(fixed_val) = constraint {
+                                Ok(*fixed_val as u8) // 假设固定值适合u8
+                            } else {
+                                Ok(0) // 默认值
+                            }
+                        } else {
+                            Ok(0) // 默认值
+                        }
+                    }
+                } else {
+                    Err(ProtocolError::TypeError(format!(
+                        "Field {} is not a bit field, it's {:?}",
+                        clean_field_name, field.unit_type
+                    )))
+                }
+            } else {
+                Err(ProtocolError::FieldNotFound(format!(
+                    "Field definition not found: {clean_field_name}"
+                )))
+            }
+        } else {
+            Err(ProtocolError::FieldNotFound(format!(
+                "Field not found: {clean_field_name}"
+            )))
+        }
     }
 }
 

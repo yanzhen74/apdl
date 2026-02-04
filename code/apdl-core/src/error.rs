@@ -24,6 +24,10 @@ pub enum ProtocolError {
     InvalidExpression(String),
     /// 同步错误
     SynchronizationError(String),
+    /// 值超出范围错误
+    ValueOutOfRange(String),
+    /// 类型错误
+    TypeError(String),
     /// 其他错误
     Other(String),
 }
@@ -43,6 +47,8 @@ impl fmt::Display for ProtocolError {
             ProtocolError::DependencyError(msg) => write!(f, "Dependency error: {msg}"),
             ProtocolError::InvalidExpression(msg) => write!(f, "Invalid expression: {msg}"),
             ProtocolError::SynchronizationError(msg) => write!(f, "Synchronization error: {msg}"),
+            ProtocolError::ValueOutOfRange(msg) => write!(f, "Value out of range: {msg}"),
+            ProtocolError::TypeError(msg) => write!(f, "Type error: {msg}"),
             ProtocolError::Other(msg) => write!(f, "Other error: {msg}"),
         }
     }

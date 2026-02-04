@@ -3,6 +3,7 @@
 //! 使用简单的字符串处理实现APDL DSL的解析，支持字段定义和协议结构描述
 
 use apdl_core::{CoverDesc, LengthDesc, SemanticRule, SyntaxUnit, UnitType};
+use serde_json;
 
 // 导入其他模块的函数
 use crate::dsl::field_mapping_parser::FieldMappingParser;
@@ -83,10 +84,32 @@ impl DslParserImpl {
     }
 
     /// 解析包定义
+    /// 解析包定义（优先使用JSON格式）
+    ///
+    /// 如果输入是有效的JSON格式，则使用JSON解析器
+    /// 否则回退到DSL解析器（向后兼容）
     pub fn parse_package_definitions(
         &self,
         input: &str,
     ) -> Result<Vec<apdl_core::PackageDefinition>, String> {
+        // 首先检查输入是否为JSON格式
+        if input.trim_start().starts_with('{') {
+            // 尝试将整个输入作为JSON解析
+            match serde_json::from_str::<apdl_core::PackageDefinition>(input.trim()) {
+                Ok(pkg_def) => return Ok(vec![pkg_def]),
+                Err(_) => {
+                    // 如果单个包解析失败，尝试解析为包数组
+                    match serde_json::from_str::<Vec<apdl_core::PackageDefinition>>(input.trim()) {
+                        Ok(pkg_defs) => return Ok(pkg_defs),
+                        Err(_) => {
+                            // JSON解析失败，回退到DSL解析
+                        }
+                    }
+                }
+            }
+        }
+
+        // 如果不是JSON格式或JSON解析失败，使用传统的DSL解析
         let mut packages = Vec::new();
 
         // 查找包定义
@@ -140,11 +163,33 @@ impl DslParserImpl {
         Ok(packages)
     }
 
-    /// 解析连接器定义
+    /// 解析连接器定义（优先使用JSON格式）
+    ///
+    /// 如果输入是有效的JSON格式，则使用JSON解析器
+    /// 否则回退到DSL解析器（向后兼容）
     pub fn parse_connector_definitions(
         &self,
         input: &str,
     ) -> Result<Vec<apdl_core::ConnectorDefinition>, String> {
+        // 首先检查输入是否为JSON格式
+        if input.trim_start().starts_with('{') {
+            // 尝试将整个输入作为JSON解析
+            match serde_json::from_str::<apdl_core::ConnectorDefinition>(input.trim()) {
+                Ok(conn_def) => return Ok(vec![conn_def]),
+                Err(_) => {
+                    // 如果单个连接器解析失败，尝试解析为连接器数组
+                    match serde_json::from_str::<Vec<apdl_core::ConnectorDefinition>>(input.trim())
+                    {
+                        Ok(conn_defs) => return Ok(conn_defs),
+                        Err(_) => {
+                            // JSON解析失败，回退到DSL解析
+                        }
+                    }
+                }
+            }
+        }
+
+        // 如果不是JSON格式或JSON解析失败，使用传统的DSL解析
         let mut connectors = Vec::new();
 
         // 查找连接器定义
@@ -198,11 +243,34 @@ impl DslParserImpl {
         Ok(connectors)
     }
 
-    /// 解析协议栈定义
+    /// 解析协议栈定义（优先使用JSON格式）
+    ///
+    /// 如果输入是有效的JSON格式，则使用JSON解析器
+    /// 否则回退到DSL解析器（向后兼容）
     pub fn parse_protocol_stack_definitions(
         &self,
         input: &str,
     ) -> Result<Vec<apdl_core::ProtocolStackDefinition>, String> {
+        // 首先检查输入是否为JSON格式
+        if input.trim_start().starts_with('{') {
+            // 尝试将整个输入作为JSON解析
+            match serde_json::from_str::<apdl_core::ProtocolStackDefinition>(input.trim()) {
+                Ok(stack_def) => return Ok(vec![stack_def]),
+                Err(_) => {
+                    // 如果单个协议栈解析失败，尝试解析为协议栈数组
+                    match serde_json::from_str::<Vec<apdl_core::ProtocolStackDefinition>>(
+                        input.trim(),
+                    ) {
+                        Ok(stack_defs) => return Ok(stack_defs),
+                        Err(_) => {
+                            // JSON解析失败，回退到DSL解析
+                        }
+                    }
+                }
+            }
+        }
+
+        // 如果不是JSON格式或JSON解析失败，使用传统的DSL解析
         let mut stacks = Vec::new();
 
         // 查找协议栈定义
@@ -531,5 +599,67 @@ mod tests {
         assert_eq!(units[0].field_id, "sync_flag");
         assert_eq!(units[1].field_id, "version");
         assert_eq!(units[2].field_id, "data");
+    }
+
+    #[test]
+    fn test_parse_package_definitions_with_json() {
+        let json_input = r#"{
+            "name": "test_package",
+            "display_name": "Test Package",
+            "package_type": "telemetry",
+            "description": "A test package",
+            "layers": []
+        }"#;
+
+        let parser = DslParserImpl;
+        let result = parser.parse_package_definitions(json_input);
+
+        assert!(result.is_ok());
+        let packages = result.unwrap();
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].name, "test_package");
+        assert_eq!(packages[0].display_name, "Test Package");
+    }
+
+    #[test]
+    fn test_parse_protocol_stack_definitions_with_json() {
+        let json_input = r#"{
+            "name": "test_stack",
+            "packages": [],
+            "connectors": [],
+            "parallel_groups": [],
+            "description": "A test protocol stack"
+        }"#;
+
+        let parser = DslParserImpl;
+        let result = parser.parse_protocol_stack_definitions(json_input);
+
+        assert!(result.is_ok(), "JSON parsing failed: {:?}", result.err());
+        let stacks = result.unwrap();
+        assert_eq!(stacks.len(), 1, "Expected 1 stack, got {}", stacks.len());
+        assert_eq!(stacks[0].name, "test_stack");
+    }
+
+    #[test]
+    fn test_parse_connector_definitions_with_json() {
+        let json_input = r#"{
+            "name": "test_connector",
+            "connector_type": "field_mapping",
+            "source_package": "source_pkg",
+            "target_package": "target_pkg",
+            "config": {
+                "mappings": []
+            },
+            "description": "A test connector"
+        }"#;
+
+        let parser = DslParserImpl;
+        let result = parser.parse_connector_definitions(json_input);
+
+        assert!(result.is_ok());
+        let connectors = result.unwrap();
+        assert_eq!(connectors.len(), 1);
+        assert_eq!(connectors[0].name, "test_connector");
+        assert_eq!(connectors[0].connector_type, "field_mapping");
     }
 }

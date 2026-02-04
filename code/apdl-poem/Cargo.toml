@@ -8,5 +8,7 @@ apdl-core = { path = "../apdl-core" }
 nom = "7.1"
 regex = "1.0"
 hex = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [dev-dependencies]

@@ -2,8 +2,10 @@
 //!
 //! 定义协议相关的元数据结构
 
+use serde::{Deserialize, Serialize};
+
 /// 协议层枚举
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ProtocolLayer {
     Physical,
     DataLink,
@@ -14,7 +16,7 @@ pub enum ProtocolLayer {
 }
 
 /// 字段定义
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FieldDefinition {
     pub name: String,
     pub field_type: FieldType,
@@ -24,7 +26,7 @@ pub struct FieldDefinition {
 }
 
 /// 字段类型
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum FieldType {
     Uint8,
     Uint16,
@@ -36,7 +38,7 @@ pub enum FieldType {
 }
 
 /// 约束条件
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Constraint {
     Range(u64, u64),          // 数值范围
     FixedValue(u64),          // 固定值
@@ -45,7 +47,7 @@ pub enum Constraint {
 }
 
 /// 作用范围类型
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ScopeType {
     Layer(String),              // 层内局部
     CrossLayer(String, String), // 跨层穿透
@@ -53,7 +55,7 @@ pub enum ScopeType {
 }
 
 /// 数据范围
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DataRange {
     Position(usize, usize), // 位置范围 (起始, 长度)
     Expression(String),     // 表达式描述
@@ -61,7 +63,7 @@ pub enum DataRange {
 }
 
 /// 单元元数据结构
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UnitMeta {
     pub id: String,                   // 单元唯一标识
     pub name: String,                 // 单元名称
@@ -77,7 +79,7 @@ pub struct UnitMeta {
 }
 
 /// 单元类型
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum UnitType {
     Uint(u8), // Uint8, Uint16, Uint32, etc.
     Bit(u8),  // Bit(1), Bit(2), etc.
@@ -86,14 +88,14 @@ pub enum UnitType {
 }
 
 /// 长度描述
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LengthDesc {
     pub size: usize,
     pub unit: LengthUnit,
 }
 
 /// 长度单位
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum LengthUnit {
     Byte,
     Bit,
@@ -102,7 +104,7 @@ pub enum LengthUnit {
 }
 
 /// 作用范围描述
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ScopeDesc {
     Layer(String),              // layer(link)
     CrossLayer(String, String), // cross_layer(net→link)
@@ -110,7 +112,7 @@ pub enum ScopeDesc {
 }
 
 /// 覆盖描述
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CoverDesc {
     Range(String, usize, usize), // frame_header[0..1]
     Expression(String),          // $cover
@@ -118,7 +120,7 @@ pub enum CoverDesc {
 }
 
 /// 算法抽象语法树
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AlgorithmAst {
     Crc16,
     Crc32,
@@ -128,14 +130,14 @@ pub enum AlgorithmAst {
 }
 
 /// 枚举映射条目
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EnumMappingEntry {
     pub source_enum: String, // 源枚举值，可以包含通配符
     pub target_enum: String, // 目标枚举值
 }
 
 /// 字段映射条目
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FieldMappingEntry {
     pub source_field: String,
     pub target_field: String,
@@ -145,20 +147,20 @@ pub struct FieldMappingEntry {
 }
 
 /// DSL解析错误
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DslParseError {
     ParseError(String),
     ValidationError(String),
 }
 
 /// DSL验证错误
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DslValidateError {
     ValidationError(String),
 }
 
 /// 语法单元结构
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SyntaxUnit {
     pub field_id: String,
     pub unit_type: UnitType,
@@ -172,7 +174,7 @@ pub struct SyntaxUnit {
 }
 
 // 新增语义规则类型
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SemanticRule {
     ChecksumRange {
         algorithm: ChecksumAlgorithm,
@@ -298,7 +300,7 @@ pub enum SemanticRule {
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ChecksumAlgorithm {
     CRC16,
     CRC32,
@@ -307,7 +309,7 @@ pub enum ChecksumAlgorithm {
 }
 
 /// 层定义结构
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LayerDefinition {
     pub name: String,
     pub units: Vec<SyntaxUnit>,
@@ -315,7 +317,7 @@ pub struct LayerDefinition {
 }
 
 /// 包定义结构
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PackageDefinition {
     pub name: String,
     pub display_name: String,
@@ -325,7 +327,7 @@ pub struct PackageDefinition {
 }
 
 /// 数据放置策略类型
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DataPlacementStrategy {
     Direct,         // 直接放入方式
     PointerBased,   // 导头指针方式
@@ -334,7 +336,7 @@ pub enum DataPlacementStrategy {
 }
 
 /// 数据放置配置
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DataPlacementConfig {
     pub strategy: DataPlacementStrategy,
     pub target_field: String,                 // 在目标包中的放置位置
@@ -342,7 +344,7 @@ pub struct DataPlacementConfig {
 }
 
 /// 连接器配置结构
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConnectorConfig {
     pub mappings: Vec<FieldMappingEntry>,
     pub header_pointers: Option<HeaderPointerConfig>,
@@ -350,7 +352,7 @@ pub struct ConnectorConfig {
 }
 
 /// 导头指针配置结构
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct HeaderPointerConfig {
     pub master_pointer: String,
     pub secondary_pointers: Vec<String>,
@@ -358,7 +360,7 @@ pub struct HeaderPointerConfig {
 }
 
 /// 连接器定义结构
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConnectorDefinition {
     pub name: String,
     pub connector_type: String, // field_mapping, header_pointer, etc.
@@ -369,7 +371,7 @@ pub struct ConnectorDefinition {
 }
 
 /// 并列包组结构
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ParallelPackageGroup {
     pub name: String,
     pub packages: Vec<String>,
@@ -378,7 +380,7 @@ pub struct ParallelPackageGroup {
 }
 
 /// 协议栈定义结构
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolStackDefinition {
     pub name: String,
     pub packages: Vec<String>,

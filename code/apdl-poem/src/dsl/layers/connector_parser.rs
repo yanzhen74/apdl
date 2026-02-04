@@ -96,7 +96,10 @@ impl ConnectorParser {
         };
 
         // 解析数据放置配置
-        let data_placement = if let Some(placement_str) = config_obj.get("placement_strategy") {
+        let data_placement = if let Some(placement_str) = config_obj
+            .get("data_placement")
+            .or_else(|| config_obj.get("placement_strategy"))
+        {
             Some(Self::parse_data_placement(placement_str)?)
         } else {
             None
