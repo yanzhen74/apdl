@@ -5,6 +5,13 @@
 use apdl_core::{LengthUnit, ProtocolError, SemanticRule, SyntaxUnit, UnitType};
 use std::collections::HashMap;
 
+/// 字节序类型
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ByteOrder {
+    BigEndian,
+    LittleEndian,
+}
+
 /// 协议帧组装器
 #[derive(Clone)]
 pub struct FrameAssembler {
@@ -15,6 +22,8 @@ pub struct FrameAssembler {
     pub field_values: HashMap<String, Vec<u8>>,
     // 添加bit字段值存储
     pub bit_field_values: HashMap<String, u8>,
+    // 添加字段字节序映射
+    pub field_byte_orders: HashMap<String, ByteOrder>,
 }
 
 impl Default for FrameAssembler {
@@ -31,6 +40,7 @@ impl FrameAssembler {
             field_index: HashMap::new(),
             field_values: HashMap::new(),
             bit_field_values: HashMap::new(),
+            field_byte_orders: HashMap::new(),
         }
     }
 
@@ -45,6 +55,48 @@ impl FrameAssembler {
     /// 添加语义规则
     pub fn add_semantic_rule(&mut self, rule: SemanticRule) {
         self.semantic_rules.push(rule);
+    }
+
+    /// 设置字段字节序
+    pub fn set_field_byte_order(&mut self, field_name: &str, byte_order: ByteOrder) {
+        let clean_field_name = field_name.trim_start_matches("field: ").trim();
+        self.field_byte_orders
+            .insert(clean_field_name.to_string(), byte_order);
+    }
+
+    /// 获取字段字节序，如果没有设置则返回默认值（大端）
+    pub fn get_field_byte_order(&self, field_name: &str) -> ByteOrder {
+        let clean_field_name = field_name.trim_start_matches("field: ").trim();
+        self.field_byte_orders
+            .get(clean_field_name)
+            .copied()
+            .unwrap_or(ByteOrder::BigEndian) // 默认使用大端字节序
+    }
+
+    /// 转换字段值以供内部存储（统一使用大端字节序）
+    fn convert_field_value_for_storage(&self, field_name: &str, external_value: &[u8]) -> Vec<u8> {
+        let byte_order = self.get_field_byte_order(field_name);
+
+        match byte_order {
+            ByteOrder::BigEndian => external_value.to_vec(), // 外部已经是大端，无需转换
+            ByteOrder::LittleEndian => {
+                // 外部是小端，需要转换为大端存储
+                external_value.iter().rev().cloned().collect()
+            }
+        }
+    }
+
+    /// 从内部存储转换字段值以供外部使用
+    fn convert_field_value_from_storage(&self, field_name: &str, internal_value: &[u8]) -> Vec<u8> {
+        let byte_order = self.get_field_byte_order(field_name);
+
+        match byte_order {
+            ByteOrder::BigEndian => internal_value.to_vec(), // 内部是大端，无需转换
+            ByteOrder::LittleEndian => {
+                // 内部是大端，需要转换为小端输出
+                internal_value.iter().rev().cloned().collect()
+            }
+        }
     }
 
     /// 组装协议帧
@@ -142,9 +194,12 @@ impl FrameAssembler {
                     }
                 }
 
+                // 根据字段的字节序处理数据
+                let processed_value = self.convert_field_value_for_storage(field_name, value);
+
                 // 存储字段值
                 self.field_values
-                    .insert(clean_field_name.to_string(), value.to_vec());
+                    .insert(clean_field_name.to_string(), processed_value);
                 println!("Setting field {clean_field_name} to value: {value:?}");
                 Ok(())
             } else {
@@ -164,7 +219,9 @@ impl FrameAssembler {
         let clean_field_name = field_name.trim_start_matches("field: ").trim();
         // 首先检查是否已有显式设置的值
         if let Some(bytes) = self.field_values.get(clean_field_name) {
-            Ok(bytes.clone())
+            // 根据字段的字节序处理数据
+            let converted_bytes = self.convert_field_value_from_storage(field_name, bytes);
+            Ok(converted_bytes)
         } else {
             // 如果没有显式设置的值，检查字段定义中是否有固定值约束
             if let Some(&index) = self.field_index.get(clean_field_name) {
@@ -210,7 +267,9 @@ impl FrameAssembler {
     fn get_field_bytes(&self, field_name: &str) -> Result<Vec<u8>, ProtocolError> {
         let clean_field_name = field_name.trim_start_matches("field: ").trim();
         if let Some(bytes) = self.field_values.get(clean_field_name) {
-            Ok(bytes.clone())
+            // 根据字段的字节序处理数据
+            let converted_bytes = self.convert_field_value_from_storage(field_name, bytes);
+            Ok(converted_bytes)
         } else {
             // 如果字段值未设置，检查字段定义中是否有固定值约束作为默认值
             if let Some(&index) = self.field_index.get(clean_field_name) {

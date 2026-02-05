@@ -4,8 +4,8 @@
 
 use apdl_core::SyntaxUnit;
 
-/// 将字节数组转换为u64
-pub fn bytes_to_u64(bytes: &[u8]) -> u64 {
+/// 将字节数组转换为u64（小端字节序）
+pub fn bytes_to_u64_le(bytes: &[u8]) -> u64 {
     let mut value = 0u64;
     for (i, &byte) in bytes.iter().enumerate() {
         value |= (byte as u64) << (8 * i);
@@ -13,13 +13,42 @@ pub fn bytes_to_u64(bytes: &[u8]) -> u64 {
     value
 }
 
-/// 将u64值转换为指定长度的字节数组
-pub fn u64_to_bytes(value: u64, size: usize) -> Vec<u8> {
+/// 将字节数组转换为u64（大端字节序）
+pub fn bytes_to_u64_be(bytes: &[u8]) -> u64 {
+    let mut value = 0u64;
+    for (i, &byte) in bytes.iter().rev().enumerate() {
+        value |= (byte as u64) << (8 * i);
+    }
+    value
+}
+
+/// 将字节数组转换为u64（根据字节序参数）
+pub fn bytes_to_u64(bytes: &[u8]) -> u64 {
+    // 为了向后兼容，仍然使用小端字节序作为默认
+    bytes_to_u64_le(bytes)
+}
+
+/// 将u64值转换为指定长度的字节数组（大端字节序）
+pub fn u64_to_bytes_be(value: u64, size: usize) -> Vec<u8> {
     let mut bytes = Vec::new();
     for i in 0..size {
         bytes.push(((value >> (8 * (size - 1 - i))) & 0xFF) as u8);
     }
     bytes
+}
+
+/// 将u64值转换为指定长度的字节数组（小端字节序）
+pub fn u64_to_bytes_le(value: u64, size: usize) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    for i in 0..size {
+        bytes.push(((value >> (8 * i)) & 0xFF) as u8);
+    }
+    bytes
+}
+
+/// 将u64值转换为指定长度的字节数组（默认大端字节序）
+pub fn u64_to_bytes(value: u64, size: usize) -> Vec<u8> {
+    u64_to_bytes_be(value, size)
 }
 
 /// 判断是否为数据字段
