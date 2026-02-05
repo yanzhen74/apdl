@@ -14,7 +14,7 @@ fn test_mpdu_comprehensive_scenario() {
     println!("预期首导头指针：0、2、0x07FF");
 
     // 创建连接器引擎
-    let mut connector_engine = ConnectorEngine::new();
+    let _connector_engine = ConnectorEngine::new();
 
     // 创建MPDU管理器（直接使用）
     let mut mpdu_manager = MpduManager::new();
@@ -41,7 +41,7 @@ fn test_mpdu_comprehensive_scenario() {
     );
 
     // 创建父包模板（数据区长度为8）
-    let mut parent_template = create_parent_template_with_data_field_size(8);
+    let parent_template = create_parent_template_with_data_field_size(8);
 
     // 添加多个父包模板到队列（因为我们预计会有3个父包）
     for i in 0..3 {

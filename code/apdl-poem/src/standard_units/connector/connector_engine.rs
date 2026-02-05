@@ -3,7 +3,8 @@
 //! 负责执行字段映射规则，将源包的字段值映射到目标包的字段
 
 use apdl_core::{
-    DataPlacementConfig, DataPlacementStrategy, FieldMappingEntry, SemanticRule, SyntaxUnit,
+    Constraint, DataPlacementConfig, DataPlacementStrategy, FieldMappingEntry, SemanticRule,
+    SyntaxUnit, UnitType,
 };
 
 use crate::standard_units::connector::mpdu_manager::MpduManager;
@@ -169,7 +170,7 @@ impl ConnectorEngine {
         // 获取源包数据（将要放入MPDU包区的内容）
         let source_data = self.extract_package_data(source_package)?;
 
-        if let Some(target_idx) = target_package
+        if let Some(_target_idx) = target_package
             .iter()
             .position(|f| f.field_id == *target_field_name)
         {
@@ -292,23 +293,6 @@ impl ConnectorEngine {
         self.extract_package_data(package)
     }
 
-    /// 生成指针值
-    fn generate_pointer_value(
-        &self,
-        package: &[SyntaxUnit],
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        // 生成指向数据的指针值（这里简化为哈希值）
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-
-        let data = self.extract_package_data(package)?;
-        let mut hasher = DefaultHasher::new();
-        data.hash(&mut hasher);
-        let hash_value = hasher.finish();
-
-        Ok(hash_value.to_be_bytes().to_vec())
-    }
-
     /// 处理自定义放置策略
     fn process_custom_placement(
         &self,
@@ -328,11 +312,53 @@ impl ConnectorEngine {
         }
     }
 
-    /// 获取字段值（简化实现）
-    fn get_field_value(&self, _field: &SyntaxUnit) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        // 在实际实现中，这里会从实际的数据中获取字段值
-        // 这里返回一个示例值
-        Ok(vec![0x01, 0x02]) // 示例值
+    /// 获取字段值
+    fn get_field_value(&self, field: &SyntaxUnit) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        // 根据字段类型和长度生成适当的值
+        // 这里我们使用一个简化的实现，实际应用中可能需要更复杂的逻辑
+
+        // 如果字段有FixedValue约束，使用该值
+        if let Some(ref constraint) = field.constraint {
+            if let Constraint::FixedValue(value) = constraint {
+                // 将u64值转换为字节数组
+                let bytes = value.to_be_bytes();
+
+                // 根据字段长度截取或填充字节
+                let size = field.length.size;
+                if bytes.len() >= size {
+                    // 如果字节数组长度大于等于字段长度，截取末尾部分
+                    return Ok(bytes[(bytes.len() - size)..].to_vec());
+                } else {
+                    // 如果字节数组长度小于字段长度，在前面填充0
+                    let mut result = vec![0; size - bytes.len()];
+                    result.extend_from_slice(&bytes);
+                    return Ok(result);
+                }
+            }
+        }
+
+        // 根据字段类型生成默认值
+        match &field.unit_type {
+            UnitType::Uint(bits) => {
+                // 生成适当大小的无符号整数值
+                let byte_size = (*bits as usize + 7) / 8; // 向上取整
+                Ok(vec![0; byte_size]) // 返回适当大小的零值
+            }
+            UnitType::Bit(bits) => {
+                // 生成适当大小的位字段值
+                let byte_size = (*bits as usize + 7) / 8; // 向上取整
+                Ok(vec![0; byte_size])
+            }
+            UnitType::RawData => {
+                // 对于原始数据，返回指定长度的零值
+                let size = field.length.size;
+                Ok(vec![0; size])
+            }
+            UnitType::Ip6Addr => {
+                // IPv6地址是16字节
+                Ok(vec![0; 16])
+            }
+        }
     }
 
     /// 应用映射逻辑
