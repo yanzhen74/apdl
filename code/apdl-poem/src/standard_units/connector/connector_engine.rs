@@ -510,8 +510,16 @@ impl ConnectorEngine {
         parent_type: &str,
         mpdu_config: &DataPlacementConfig,
     ) -> Option<Vec<u8>> {
-        self.mpdu_manager
+        match self
+            .mpdu_manager
             .build_mpdu_packet(parent_type, mpdu_config)
+        {
+            Ok(result) => result,
+            Err(e) => {
+                eprintln!("Error building MPDU packet: {}", e);
+                None
+            }
+        }
     }
 
     /// 获取指定类型子包队列的长度
@@ -522,79 +530,6 @@ impl ConnectorEngine {
     /// 获取指定类型父包模板队列的长度
     pub fn get_parent_queue_length(&self, parent_type: &str) -> usize {
         self.mpdu_manager.get_parent_queue_length(parent_type)
-    }
-
-    /// MPDU（多路协议数据单元）处理 - 生成CCSDS标准的首导头指针
-    /// 支持真正的流式存储功能，其中连续的子包可以被添加到父包中
-    pub fn generate_mpdu_with_pointers(
-        &self,
-        source_assemblers: &mut [FrameAssembler],
-        target_assembler: &mut FrameAssembler,
-        mpdu_config: &DataPlacementConfig,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        // 1. 组装所有源包（形成MPDU包区的内容）
-        let mut mpdu_data = Vec::new();
-        let mut packet_offsets = Vec::new();
-        let mut current_offset = 0;
-
-        for source_asm in source_assemblers {
-            let packet_data = source_asm.assemble_frame().map_err(|e| Box::new(e))?;
-            packet_offsets.push(current_offset);
-            mpdu_data.extend_from_slice(&packet_data);
-            current_offset += packet_data.len();
-        }
-
-        // 2. 设置MPDU数据到目标包（作为MPDU包区）
-        target_assembler
-            .set_field_value(&mpdu_config.target_field, &mpdu_data)
-            .map_err(|e| Box::new(e))?;
-
-        // 3. 如果配置了指针字段，则设置CCSDS标准的首导头指针
-        // 根据CCSDS标准，首导头指针指向MPDU包区中第一个完整包的第一个字节位置
-        if let Some(pointer_field_name) = mpdu_config
-            .config_params
-            .iter()
-            .find(|(key, _)| key == "pointer_field")
-            .map(|(_, value)| value.as_str())
-        {
-            if !packet_offsets.is_empty() {
-                // 设置第一个完整包的偏移量（CCSDS标准首导头指针）
-                // 在CCSDS标准中，首导头指针指向第一个完整包的位置
-                let first_packet_offset = packet_offsets[0] as u16; // 总是0
-                let pointer_bytes = first_packet_offset.to_be_bytes().to_vec(); // 2字节指针字段
-                target_assembler
-                    .set_field_value(pointer_field_name, &pointer_bytes)
-                    .map_err(|e| Box::new(e))?;
-                println!(
-                    "Set CCSDS MPDU first header pointer to offset: {} (first packet)",
-                    first_packet_offset
-                );
-            }
-        }
-
-        // 4. 如果配置了多个指针字段，可以设置多个子包的指针（用于复杂MPDU场景）
-        if let Some(packet_pointers_field_name) = mpdu_config
-            .config_params
-            .iter()
-            .find(|(key, _)| key == "packet_pointers_field")
-            .map(|(_, value)| value.as_str())
-        {
-            // 将所有子包偏移量打包到一个指针字段中（用于接收端重组）
-            let mut all_pointers = Vec::new();
-            for &offset in &packet_offsets {
-                let ptr_bytes = (offset as u16).to_be_bytes().to_vec(); // 2字节指针
-                all_pointers.extend_from_slice(&ptr_bytes);
-            }
-            target_assembler
-                .set_field_value(packet_pointers_field_name, &all_pointers)
-                .map_err(|e| Box::new(e))?;
-            println!(
-                "Set CCSDS MPDU packet pointers for {} packets",
-                packet_offsets.len()
-            );
-        }
-
-        Ok(())
     }
 }
 

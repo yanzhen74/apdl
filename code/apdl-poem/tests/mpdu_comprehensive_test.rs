@@ -41,7 +41,7 @@ fn test_mpdu_comprehensive_scenario() {
     );
 
     // 创建父包模板（数据区长度为8）
-    let parent_template = create_parent_template_with_data_field_size(8);
+    let _parent_template = create_parent_template_with_data_field_size(8);
 
     // 添加多个父包模板到队列（因为我们预计会有3个父包）
     for i in 0..3 {
@@ -78,26 +78,33 @@ fn test_mpdu_comprehensive_scenario() {
     let mut results = Vec::new();
     for i in 0..3 {
         println!("\n构建第 {} 个MPDU包...", i + 1);
-        if let Some(mpdu_packet) = mpdu_manager.build_mpdu_packet("test_parent", &mpdu_config) {
-            println!("第 {} 个MPDU包长度: {} 字节", i + 1, mpdu_packet.len());
-            println!(
-                "第 {} 个MPDU包内容: {:?}",
-                i + 1,
-                &mpdu_packet[..std::cmp::min(10, mpdu_packet.len())]
-            );
+        match mpdu_manager.build_mpdu_packet("test_parent", &mpdu_config) {
+            Ok(Some(mpdu_packet)) => {
+                println!("第 {} 个MPDU包长度: {} 字节", i + 1, mpdu_packet.len());
+                println!(
+                    "第 {} 个MPDU包内容: {:?}",
+                    i + 1,
+                    &mpdu_packet[..std::cmp::min(10, mpdu_packet.len())]
+                );
 
-            // 提取首导头指针（假设在前2个字节）
-            if mpdu_packet.len() >= 2 {
-                let pointer_val = ((mpdu_packet[0] as u16) << 8) | (mpdu_packet[1] as u16);
-                println!("第 {} 个MPDU包首导头指针: 0x{:04X}", i + 1, pointer_val);
-                results.push(pointer_val);
-            } else {
-                println!("第 {} 个MPDU包长度不足，无法提取指针", i + 1);
+                // 提取首导头指针（假设在前2个字节）
+                if mpdu_packet.len() >= 2 {
+                    let pointer_val = ((mpdu_packet[0] as u16) << 8) | (mpdu_packet[1] as u16);
+                    println!("第 {} 个MPDU包首导头指针: 0x{:04X}", i + 1, pointer_val);
+                    results.push(pointer_val);
+                } else {
+                    println!("第 {} 个MPDU包长度不足，无法提取指针", i + 1);
+                    results.push(0); // 默认值
+                }
+            }
+            Ok(None) => {
+                println!("第 {} 个MPDU包构建返回None（可能没有足够的数据）", i + 1);
                 results.push(0); // 默认值
             }
-        } else {
-            println!("第 {} 个MPDU包构建失败", i + 1);
-            results.push(0); // 默认值
+            Err(e) => {
+                println!("第 {} 个MPDU包构建失败: {}", i + 1, e);
+                results.push(0); // 默认值
+            }
         }
     }
 

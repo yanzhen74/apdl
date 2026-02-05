@@ -20,12 +20,6 @@ pub struct MpduManager {
 /// 部分MPDU包状态
 #[derive(Clone)]
 pub struct PartialMpduState {
-    /// 当前父包数据
-    pub data: Vec<u8>,
-    /// 已使用的字节数
-    pub used_bytes: usize,
-    /// 总容量
-    pub capacity: usize,
     /// 剩余的子包数据
     pub remaining_child_data: Vec<u8>,
 }
@@ -61,48 +55,43 @@ impl MpduManager {
         &mut self,
         parent_type: &str,
         mpdu_config: &DataPlacementConfig,
-    ) -> Option<Vec<u8>> {
+    ) -> Result<Option<Vec<u8>>, String> {
         // 获取父包模板
         let mut parent_assembler = self
             .parent_template_queues
-            .get_mut(parent_type)?
-            .pop_front()?;
+            .get_mut(parent_type)
+            .ok_or_else(|| format!("Parent template queue not found for type: {}", parent_type))?
+            .pop_front()
+            .ok_or_else(|| "No parent template available".to_string())?;
 
         // 获取当前部分包状态（如果有）
-        let mut partial_state = self
+        let partial_state = self
             .current_partial_packets
             .remove(parent_type)
-            .unwrap_or_else(|| {
-                PartialMpduState {
-                    data: vec![],
-                    used_bytes: 0,
-                    capacity: 0, // 将在后面计算
-                    remaining_child_data: vec![],
-                }
+            .unwrap_or_else(|| PartialMpduState {
+                remaining_child_data: vec![],
             });
 
         // 计算MPDU容量（目标字段的大小）
-        if partial_state.capacity == 0 {
-            if let Ok(field_size) =
-                parent_assembler.get_field_size_by_name(&mpdu_config.target_field)
-            {
-                partial_state.capacity = field_size;
-            } else {
-                // 如果无法获取字段大小，使用默认值
-                partial_state.capacity = 1024; // 默认1KB
-            }
-        }
+        let capacity = parent_assembler
+            .get_field_size_by_name(&mpdu_config.target_field)
+            .map_err(|e| {
+                format!(
+                    "Failed to get field size for '{}': {}",
+                    mpdu_config.target_field, e
+                )
+            })?;
 
         // 先处理剩余的子包数据（如果有的话）
-        let mut current_data = partial_state.data.clone();
-        let mut used_bytes = partial_state.used_bytes;
+        let mut current_data = vec![];
+        let mut used_bytes = 0;
 
         // 首导头指针位置初始化为0
         let mut pointer_pos = 0;
 
         // 如果有剩余的子包数据，先填充到当前包
         if !partial_state.remaining_child_data.is_empty() {
-            let space_left = partial_state.capacity;
+            let space_left = capacity;
             let available = std::cmp::min(space_left, partial_state.remaining_child_data.len());
 
             current_data.extend_from_slice(&partial_state.remaining_child_data[..available]);
@@ -116,11 +105,8 @@ impl MpduManager {
             };
 
             // 如果当前包已满，但还有剩余数据，保存状态供下次使用
-            if used_bytes >= partial_state.capacity && !remaining_after_fill.is_empty() {
+            if used_bytes >= capacity && !remaining_after_fill.is_empty() {
                 let new_partial_state = PartialMpduState {
-                    data: vec![],
-                    used_bytes: 0,
-                    capacity: partial_state.capacity,
                     remaining_child_data: remaining_after_fill,
                 };
                 self.current_partial_packets
@@ -129,7 +115,7 @@ impl MpduManager {
         }
 
         // indicate that the current packet is not full
-        if used_bytes < partial_state.capacity {
+        if used_bytes < capacity {
             pointer_pos = 0xFFFF;
             if used_bytes > 0 {
                 pointer_pos = 0x07FF;
@@ -141,7 +127,7 @@ impl MpduManager {
             .child_packet_queues
             .entry(parent_type.to_string())
             .or_default();
-        while used_bytes < partial_state.capacity && !child_queue.is_empty() {
+        while used_bytes < capacity && !child_queue.is_empty() {
             if let Some(child_data) = child_queue.pop_front() {
                 if pointer_pos == 0xFFFF || pointer_pos == 0x07FF {
                     // 只要有子包，当前pos就是指针位置
@@ -149,7 +135,7 @@ impl MpduManager {
                 }
 
                 // 检查是否有足够空间放置当前子包
-                let space_left = partial_state.capacity - used_bytes;
+                let space_left = capacity - used_bytes;
 
                 if child_data.len() <= space_left {
                     // 整个子包可以放入当前MPDU
@@ -164,9 +150,6 @@ impl MpduManager {
                     // 保存剩余的子包数据供下次使用
                     let remaining_child = child_data[space_left..].to_vec();
                     let new_partial_state = PartialMpduState {
-                        data: vec![],
-                        used_bytes: 0,
-                        capacity: partial_state.capacity,
                         remaining_child_data: remaining_child,
                     };
                     self.current_partial_packets
@@ -176,13 +159,12 @@ impl MpduManager {
         }
 
         // 如果当前包还没有填满，添加填充码
-        if used_bytes < partial_state.capacity {
-            let padding_size = partial_state.capacity - used_bytes;
+        if used_bytes < capacity {
+            let padding_size = capacity - used_bytes;
 
             // 根据MPDU配置获取填充码，如果没有则使用默认填充码
             let padding_data = self.get_padding_bytes(mpdu_config, padding_size);
             current_data.extend_from_slice(&padding_data);
-            // used_bytes += padding_size; // 这个变量不再需要更新
         }
 
         // 如果是空包
@@ -191,7 +173,7 @@ impl MpduManager {
         }
 
         // 设置首导头指针
-        self.set_mpdu_pointer(&mut parent_assembler, mpdu_config, pointer_pos);
+        self.set_mpdu_pointer(&mut parent_assembler, mpdu_config, pointer_pos)?;
 
         // 将MPDU数据设置到目标字段
         if parent_assembler
@@ -200,11 +182,11 @@ impl MpduManager {
         {
             // 组装完整的帧并返回
             if let Ok(final_frame) = parent_assembler.assemble_frame() {
-                return Some(final_frame);
+                return Ok(Some(final_frame));
             }
         }
 
-        None
+        Ok(None)
     }
 
     /// 获取填充码
@@ -237,7 +219,7 @@ impl MpduManager {
         parent_assembler: &mut FrameAssembler,
         mpdu_config: &DataPlacementConfig,
         pointer_pos: u16,
-    ) {
+    ) -> Result<(), String> {
         // 检查是否有指针字段配置
         if let Some(pointer_field_name) = mpdu_config
             .config_params
@@ -253,8 +235,16 @@ impl MpduManager {
             let pointer_bytes = pointer_value.to_be_bytes().to_vec();
 
             // 设置指针字段值
-            let _ = parent_assembler.set_field_value(pointer_field_name, &pointer_bytes);
+            parent_assembler
+                .set_field_value(pointer_field_name, &pointer_bytes)
+                .map_err(|e| {
+                    format!(
+                        "Failed to set pointer field '{}': {}",
+                        pointer_field_name, e
+                    )
+                })?;
         }
+        Ok(())
     }
 
     /// 获取指定类型子包队列的长度
