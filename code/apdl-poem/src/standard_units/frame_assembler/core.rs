@@ -6,6 +6,7 @@ use apdl_core::{LengthUnit, ProtocolError, SemanticRule, SyntaxUnit, UnitType};
 use std::collections::HashMap;
 
 /// 协议帧组装器
+#[derive(Clone)]
 pub struct FrameAssembler {
     pub fields: Vec<SyntaxUnit>,
     pub semantic_rules: Vec<SemanticRule>,

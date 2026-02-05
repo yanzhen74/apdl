@@ -10,12 +10,25 @@ use apdl_core::{
 use crate::standard_units::connector::mpdu_manager::MpduManager;
 use crate::standard_units::frame_assembler::core::FrameAssembler;
 
+use std::collections::HashMap;
+use std::collections::VecDeque;
+
+/// 子包数据结构
+struct ChildPacketData {
+    /// 子包组装器
+    assembler: FrameAssembler,
+    /// 包类型标识
+    _packet_type: String,
+}
+
 /// 连接器引擎
 pub struct ConnectorEngine {
     /// 映射规则集合
     mapping_rules: Vec<apdl_core::SemanticRule>,
     /// MPDU管理器
     mpdu_manager: MpduManager,
+    /// 子包缓存队列 - 按父包类型分类
+    child_packet_queues: HashMap<String, VecDeque<ChildPacketData>>,
 }
 
 impl ConnectorEngine {
@@ -24,6 +37,7 @@ impl ConnectorEngine {
         Self {
             mapping_rules: Vec::new(),
             mpdu_manager: MpduManager::new(),
+            child_packet_queues: HashMap::new(),
         }
     }
 
@@ -499,9 +513,124 @@ impl ConnectorEngine {
         Ok(())
     }
 
-    /// 添加父包模板到MPDU管理器
-    pub fn add_parent_template(&mut self, parent_type: &str, template: FrameAssembler) {
-        self.mpdu_manager.add_parent_template(parent_type, template);
+    /// 构建MPDU包 - 从子包队列中取出数据填充到父包
+
+    /// 添加子包到指定类型的队列
+    pub fn add_child_packet(&mut self, parent_type: &str, assembler: FrameAssembler) {
+        let child_data = ChildPacketData {
+            assembler,
+            _packet_type: parent_type.to_string(),
+        };
+        self.child_packet_queues
+            .entry(parent_type.to_string())
+            .or_insert_with(VecDeque::new)
+            .push_back(child_data);
+    }
+
+    /// 获取指定类型子包队列的长度
+    pub fn get_child_queue_length(&self, parent_type: &str) -> usize {
+        self.mpdu_manager.get_child_queue_length(parent_type)
+    }
+
+    /// 获取指定类型父包模板队列的长度
+    pub fn get_parent_queue_length(&self, parent_type: &str) -> usize {
+        self.mpdu_manager.get_parent_queue_length(parent_type)
+    }
+
+    /// 构建包 - 统一接口，根据数据放置配置选择合适的构建策略
+    pub fn build_packet(
+        &mut self,
+        parent_type: &str,
+        placement_config: &DataPlacementConfig,
+    ) -> Option<Vec<u8>> {
+        match placement_config.strategy {
+            DataPlacementStrategy::PointerBased => {
+                // 使用MPDU策略构建包
+                self.build_mpdu_packet_internal(parent_type, placement_config)
+            }
+            DataPlacementStrategy::Direct => {
+                // 直接放置策略：从队列中取出子包直接作为结果
+                self.build_direct_packet(parent_type)
+            }
+            DataPlacementStrategy::StreamBased => {
+                // 流式放置策略：类似MPDU但不使用指针
+                self.build_stream_packet(parent_type)
+            }
+            DataPlacementStrategy::Custom(_) => {
+                // 自定义策略，暂时返回None
+                None
+            }
+        }
+    }
+
+    /// 构建MPDU包 - 从子包队列中取出数据填充到父包（内部方法）
+    fn build_mpdu_packet_internal(
+        &mut self,
+        parent_type: &str,
+        mpdu_config: &DataPlacementConfig,
+    ) -> Option<Vec<u8>> {
+        match self
+            .mpdu_manager
+            .build_mpdu_packet(parent_type, mpdu_config)
+        {
+            Ok(result) => result,
+            Err(e) => {
+                eprintln!("Error building MPDU packet: {}", e);
+                None
+            }
+        }
+    }
+
+    /// 构建直接放置包
+    fn build_direct_packet(&mut self, parent_type: &str) -> Option<Vec<u8>> {
+        // 从队列中获取子包并直接返回
+        if let Some(mut queue) = self.child_packet_queues.remove(parent_type) {
+            if let Some(mut child_data) = queue.pop_front() {
+                if let Ok(frame) = child_data.assembler.assemble_frame() {
+                    // 将队列放回去
+                    self.child_packet_queues
+                        .insert(parent_type.to_string(), queue);
+                    return Some(frame);
+                } else {
+                    // 如果出错，仍要把队列放回去
+                    self.child_packet_queues
+                        .insert(parent_type.to_string(), queue);
+                }
+            } else {
+                // 如果队列为空，仍要把队列放回去
+                self.child_packet_queues
+                    .insert(parent_type.to_string(), queue);
+            }
+        }
+        None
+    }
+
+    /// 构建流式放置包
+    fn build_stream_packet(&mut self, parent_type: &str) -> Option<Vec<u8>> {
+        // 简单的流式放置：将多个子包连接成一个大的数据块
+        let mut result = Vec::new();
+
+        if let Some(mut queue) = self.child_packet_queues.remove(parent_type) {
+            // 取出所有可用的子包并连接它们的数据
+            while let Some(mut child_data) = queue.pop_front() {
+                if let Ok(frame) = child_data.assembler.assemble_frame() {
+                    result.extend_from_slice(&frame);
+                    // 限制结果大小以防止无限增长
+                    if result.len() > 1024 {
+                        break;
+                    }
+                }
+            }
+            // 将队列放回去（即使可能已空）
+            self.child_packet_queues
+                .insert(parent_type.to_string(), queue);
+        }
+
+        if result.is_empty() {
+            None
+        } else {
+            Some(result)
+        }
     }
 
     /// 构建MPDU包 - 从子包队列中取出数据填充到父包
@@ -520,16 +649,6 @@ impl ConnectorEngine {
                 None
             }
         }
-    }
-
-    /// 获取指定类型子包队列的长度
-    pub fn get_child_queue_length(&self, parent_type: &str) -> usize {
-        self.mpdu_manager.get_child_queue_length(parent_type)
-    }
-
-    /// 获取指定类型父包模板队列的长度
-    pub fn get_parent_queue_length(&self, parent_type: &str) -> usize {
-        self.mpdu_manager.get_parent_queue_length(parent_type)
     }
 }
 
