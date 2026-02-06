@@ -75,13 +75,6 @@ fn test_mpdu_comprehensive_scenario() {
         println!("准备添加父包模板 #{}", i + 1);
     }
 
-    // 添加子包到队列
-    connector_engine.add_child_packet("test_dispatch", child_assembler_1);
-    connector_engine.add_child_packet("test_dispatch", child_assembler_2);
-    connector_engine.add_child_packet("test_dispatch", child_assembler_3);
-
-    println!("添加了3个子包到队列");
-
     // 配置MPDU参数
     let mpdu_config = DataPlacementConfig {
         strategy: DataPlacementStrategy::PointerBased,
@@ -92,34 +85,95 @@ fn test_mpdu_comprehensive_scenario() {
         ],
     };
 
-    // 构建MPDU包
-    let mut results = Vec::new();
-    println!("\n尝试构建MPDU包...");
-    match connector_engine.build_mpdu_packet("test_dispatch", &mpdu_config) {
-        Ok(Some(mpdu_packet)) => {
-            println!("MPDU包构建成功，长度: {} 字节", mpdu_packet.len());
-            println!(
-                "MPDU包内容: {:?}",
-                &mpdu_packet[..std::cmp::min(10, mpdu_packet.len())]
-            );
+    // 创建字段映射配置
+    let mappings = vec![
+        apdl_core::FieldMappingEntry {
+            source_field: "apid".to_string(),
+            target_field: "vcid".to_string(),
+            mapping_logic: "identity".to_string(),
+            default_value: "0".to_string(),
+            enum_mappings: None,
+        },
+        apdl_core::FieldMappingEntry {
+            source_field: "length".to_string(),
+            target_field: "encap_length".to_string(),
+            mapping_logic: "identity".to_string(),
+            default_value: "0".to_string(),
+            enum_mappings: None,
+        },
+    ];
 
-            // 提取首导头指针（假设在前2个字节）
-            if mpdu_packet.len() >= 2 {
-                let pointer_val = ((mpdu_packet[0] as u16) << 8) | (mpdu_packet[1] as u16);
-                println!("MPDU包首导头指针: 0x{:04X}", pointer_val);
-                results.push(pointer_val);
-            } else {
-                println!("MPDU包长度不足，无法提取指针");
+    let connector_config = apdl_core::ConnectorConfig {
+        mappings,
+        header_pointers: None,
+        data_placement: Some(mpdu_config.clone()),
+    };
+
+    // 使用connect函数连接子包和父包
+    let mut parent_assembler_1 = parent_template.clone();
+    let mut parent_assembler_2 = parent_template.clone();
+    let mut parent_assembler_3 = parent_template.clone();
+
+    connector_engine
+        .connect(
+            &mut child_assembler_1,
+            &mut parent_assembler_1,
+            "test_dispatch",
+            &connector_config,
+        )
+        .expect("Failed to connect child packet 1");
+    connector_engine
+        .connect(
+            &mut child_assembler_2,
+            &mut parent_assembler_2,
+            "test_dispatch",
+            &connector_config,
+        )
+        .expect("Failed to connect child packet 2");
+    connector_engine
+        .connect(
+            &mut child_assembler_3,
+            &mut parent_assembler_3,
+            "test_dispatch",
+            &connector_config,
+        )
+        .expect("Failed to connect child packet 3");
+
+    println!("通过connect函数连接了3个子包");
+
+    // 使用轮询调度构建MPDU包
+    let mut results = Vec::new();
+    println!("\n尝试构建MPDU包(轮询调度)...");
+
+    // 构建3个MPDU包，每次轮询不同的队列
+    for i in 0..3 {
+        match connector_engine.build_packet(&mpdu_config) {
+            Some((mpdu_packet, dispatch_flag)) => {
+                println!(
+                    "第{}个MPDU包构建成功，长度: {} 字节, dispatch_flag: {}",
+                    i + 1,
+                    mpdu_packet.len(),
+                    dispatch_flag
+                );
+                println!(
+                    "MPDU包内容: {:?}",
+                    &mpdu_packet[..std::cmp::min(10, mpdu_packet.len())]
+                );
+
+                // 提取首导头指针（假设在前2个字节）
+                if mpdu_packet.len() >= 2 {
+                    let pointer_val = ((mpdu_packet[0] as u16) << 8) | (mpdu_packet[1] as u16);
+                    println!("MPDU包首导头指针: 0x{:04X}", pointer_val);
+                    results.push(pointer_val);
+                } else {
+                    println!("MPDU包长度不足，无法提取指针");
+                    results.push(0); // 默认值
+                }
+            }
+            None => {
+                println!("第{}个包：没有可用的子包数据构建MPDU包", i + 1);
                 results.push(0); // 默认值
             }
-        }
-        Ok(None) => {
-            println!("MPDU包构建返回None（可能没有足够的数据）");
-            results.push(0); // 默认值
-        }
-        Err(e) => {
-            println!("MPDU包构建失败: {}", e);
-            results.push(0); // 默认值
         }
     }
 
