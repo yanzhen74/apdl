@@ -370,6 +370,7 @@ fn test_full_stack_integration() {
         .connect(
             &mut child_assembler,
             &mut parent_assembler,
+            "test_channel",
             &connector_definition.config,
         )
         .expect("Failed to connect packages");
