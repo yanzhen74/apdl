@@ -454,6 +454,11 @@ impl ConnectorEngine {
         {
             // 组装完整的帧并返回
             if let Ok(final_frame) = parent_assembler.assemble_frame() {
+                // 更新队列中的parent_assembler以保持状态（如序列号）
+                if let Some(queue) = self.child_packet_queues.get_mut(dispatch_flag) {
+                    queue.parent_assembler = parent_assembler;
+                }
+
                 // 只有当child_packet_queue为空且没有剩余数据时，才移除队列
                 if should_remove {
                     self.child_packet_queues.remove(dispatch_flag);
