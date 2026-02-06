@@ -13,7 +13,7 @@ impl FrameAssembler {
         condition: &str,
         action: &str,
         description: &str,
-        frame_data: &mut Vec<u8>,
+        frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         println!(
             "Applying message filtering rule: {description} with condition {condition} and action {action}"
@@ -322,7 +322,7 @@ impl FrameAssembler {
             // 提取要搜索的模式
             if let Some(start) = condition.find('"') {
                 if let Some(end) = condition[start + 1..].find('"').map(|i| i + start + 1) {
-                    let pattern = condition[start + 1..end].as_bytes();
+                    let pattern = &condition.as_bytes()[start + 1..end];
                     Ok(frame_data
                         .windows(pattern.len())
                         .any(|window| window == pattern))

@@ -209,12 +209,7 @@ fn set_mpdu_pointer(
         // 设置指针字段值
         parent_assembler
             .set_field_value(pointer_field_name, &pointer_bytes)
-            .map_err(|e| {
-                format!(
-                    "Failed to set pointer field '{}': {}",
-                    pointer_field_name, e
-                )
-            })?;
+            .map_err(|e| format!("Failed to set pointer field '{pointer_field_name}': {e}"))?;
     }
     Ok(())
 }

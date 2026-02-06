@@ -2,8 +2,6 @@
 //!
 //! 实现协议流量的模拟生成
 
-use std::collections::HashMap;
-
 /// 流量类型
 #[derive(Debug, Clone)]
 pub enum TrafficType {

@@ -15,7 +15,7 @@ impl FrameAssembler {
         target_package: &str,
         mappings: &[FieldMappingEntry],
         description: &str,
-        frame_data: &mut Vec<u8>,
+        frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         println!(
             "Applying field mapping rule: {description} from {source_package} to {target_package}"
@@ -33,7 +33,7 @@ impl FrameAssembler {
     fn process_single_field_mapping(
         &mut self,
         mapping: &FieldMappingEntry,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         println!(
             "Processing field mapping: {} -> {} with logic '{}'",

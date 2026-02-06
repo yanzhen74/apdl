@@ -11,29 +11,29 @@ pub struct JsonParser;
 impl JsonParser {
     /// 解析包定义JSON
     pub fn parse_package(json_str: &str) -> Result<PackageDefinition, String> {
-        serde_json::from_str(json_str).map_err(|e| format!("Failed to parse package JSON: {}", e))
+        serde_json::from_str(json_str).map_err(|e| format!("Failed to parse package JSON: {e}"))
     }
 
     /// 解析连接器定义JSON
     pub fn parse_connector(json_str: &str) -> Result<ConnectorDefinition, String> {
-        serde_json::from_str(json_str).map_err(|e| format!("Failed to parse connector JSON: {}", e))
+        serde_json::from_str(json_str).map_err(|e| format!("Failed to parse connector JSON: {e}"))
     }
 
     /// 解析语义规则JSON
     pub fn parse_semantic_rule(json_str: &str) -> Result<SemanticRule, String> {
         serde_json::from_str(json_str)
-            .map_err(|e| format!("Failed to parse semantic rule JSON: {}", e))
+            .map_err(|e| format!("Failed to parse semantic rule JSON: {e}"))
     }
 
     /// 解析协议栈定义JSON
     pub fn parse_protocol_stack(json_str: &str) -> Result<ProtocolStackDefinition, String> {
         serde_json::from_str(json_str)
-            .map_err(|e| format!("Failed to parse protocol stack JSON: {}", e))
+            .map_err(|e| format!("Failed to parse protocol stack JSON: {e}"))
     }
 
     /// 验证JSON格式
     pub fn validate_json(json_str: &str) -> Result<Value, String> {
-        serde_json::from_str(json_str).map_err(|e| format!("Invalid JSON format: {}", e))
+        serde_json::from_str(json_str).map_err(|e| format!("Invalid JSON format: {e}"))
     }
 }
 

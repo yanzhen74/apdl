@@ -107,9 +107,9 @@ impl ProtocolStackParser {
         // 检查是否包含方括号，如果包含则去掉
         let inner_content = if trimmed_content.starts_with('[') && trimmed_content.ends_with(']') {
             // 去除首尾的方括号
-            &trimmed_content[1..trimmed_content.len() - 1].trim()
+            trimmed_content[1..trimmed_content.len() - 1].trim()
         } else {
-            // 如果没有方括号，则直接使用原内容
+            // 如果没有方括号,则直接使用原内容
             trimmed_content
         };
 
@@ -222,7 +222,7 @@ impl ProtocolStackParser {
 
         num_str
             .parse::<u32>()
-            .map_err(|_| format!("Failed to parse number: {}", num_str))
+            .map_err(|_| format!("Failed to parse number: {num_str}"))
     }
 
     /// 提取花括号内容
@@ -369,7 +369,7 @@ impl ProtocolStackParser {
                     let after_quote = &value_part[start + 1 + end + 1..];
                     if after_quote.find(';').is_some() {
                         // 在分号处分割
-                        &quoted_content
+                        quoted_content
                     } else {
                         // 没有分号，直接返回引号内容
                         quoted_content

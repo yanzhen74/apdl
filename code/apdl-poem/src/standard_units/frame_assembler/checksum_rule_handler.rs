@@ -10,7 +10,7 @@ impl FrameAssembler {
     /// 应用校验和规则
     pub fn apply_checksum_rule(
         &mut self,
-        frame_data: &mut Vec<u8>,
+        frame_data: &mut [u8],
         algorithm: &ChecksumAlgorithm,
         start_field: &str,
         end_field: &str,
@@ -161,13 +161,13 @@ impl FrameAssembler {
         alg_ast: &AlgorithmAst,
         algorithm: &ChecksumAlgorithm,
     ) -> bool {
-        match (alg_ast, algorithm) {
-            (AlgorithmAst::Crc16, ChecksumAlgorithm::CRC16) => true,
-            (AlgorithmAst::Crc32, ChecksumAlgorithm::CRC32) => true,
-            (AlgorithmAst::Crc15, ChecksumAlgorithm::CRC15) => true,
-            (AlgorithmAst::XorSum, ChecksumAlgorithm::XOR) => true,
-            _ => false,
-        }
+        matches!(
+            (alg_ast, algorithm),
+            (AlgorithmAst::Crc16, ChecksumAlgorithm::CRC16)
+                | (AlgorithmAst::Crc32, ChecksumAlgorithm::CRC32)
+                | (AlgorithmAst::Crc15, ChecksumAlgorithm::CRC15)
+                | (AlgorithmAst::XorSum, ChecksumAlgorithm::XOR)
+        )
     }
 
     /// 计算CRC32校验和

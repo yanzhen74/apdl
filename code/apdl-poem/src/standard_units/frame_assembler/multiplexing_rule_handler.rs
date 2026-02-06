@@ -14,7 +14,7 @@ impl FrameAssembler {
         condition: &str,
         route_target: &str,
         description: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         println!(
             "Applying multiplexing rule: {description} for field {field_name} with condition {condition} and route to {route_target}"

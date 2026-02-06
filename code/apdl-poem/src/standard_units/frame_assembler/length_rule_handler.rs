@@ -2,7 +2,6 @@
 //!
 //! 处理与长度相关的语义规则，包括长度表达式计算和函数表达式解析
 
-
 use crate::standard_units::frame_assembler::core::FrameAssembler;
 use apdl_core::{ProtocolError, SemanticRule};
 
@@ -10,7 +9,7 @@ impl FrameAssembler {
     /// 应用长度和CRC规则（第二阶段处理）
     pub fn apply_length_and_crc_rules(
         &mut self,
-        frame_data: &mut Vec<u8>,
+        frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         // 克隆语义规则以避免借用冲突
         let rules_to_process: Vec<_> = self.semantic_rules.clone();
@@ -109,9 +108,7 @@ impl FrameAssembler {
         // 例如: "(total_length - 3)", "(data_length + 7)", "pos(fecf) + len(fecf) - pos(version)", 等
 
         // 移除可能的双引号和括号
-        println!(
-            "DEBUG: evaluate_length_expression - Original expression: '{expression:?}'"
-        );
+        println!("DEBUG: evaluate_length_expression - Original expression: '{expression:?}'");
         // 首先移除最外层的引号（处理转义引号）
         let mut expr_cleaned = expression.trim().to_string();
 
@@ -126,9 +123,7 @@ impl FrameAssembler {
             expr_cleaned = expr_cleaned[1..expr_cleaned.len() - 1].to_string();
         }
 
-        println!(
-            "DEBUG: evaluate_length_expression - After cleaning: '{expr_cleaned:?}'"
-        );
+        println!("DEBUG: evaluate_length_expression - After cleaning: '{expr_cleaned:?}'");
 
         // 检查是否包含 min 或 max 函数
         if expr_cleaned.starts_with("min(") && expr_cleaned.ends_with(')') {
@@ -263,9 +258,7 @@ impl FrameAssembler {
                 for _ in 0..missing_parens {
                     result.push(')');
                 }
-                println!(
-                    "DEBUG: Restored missing parentheses, new result: '{result:?}'"
-                );
+                println!("DEBUG: Restored missing parentheses, new result: '{result:?}'");
             }
         }
 
@@ -285,9 +278,7 @@ impl FrameAssembler {
             }
             let field_name = &matched[field_name_start..field_name_end].trim();
 
-            println!(
-                "DEBUG: Found len function: {matched:?}, field_name: {field_name:?}"
-            );
+            println!("DEBUG: Found len function: {matched:?}, field_name: {field_name:?}");
 
             if let Ok(size) = self.get_field_size_by_name(field_name) {
                 temp_replacements.push((matched.to_string(), size.to_string()));
@@ -307,9 +298,7 @@ impl FrameAssembler {
             }
             let field_name = &matched[field_name_start..field_name_end].trim();
 
-            println!(
-                "DEBUG: Found pos function: {matched:?}, field_name: {field_name:?}"
-            );
+            println!("DEBUG: Found pos function: {matched:?}, field_name: {field_name:?}");
 
             if let Ok(position) = self.get_field_position(field_name) {
                 temp_replacements.push((matched.to_string(), position.to_string()));
@@ -330,16 +319,12 @@ impl FrameAssembler {
 
         // 应用替换
         for (old, new) in temp_replacements {
-            println!(
-                "DEBUG: Replacing '{old:?}' with '{new:?}' in '{result:?}'"
-            );
+            println!("DEBUG: Replacing '{old:?}' with '{new:?}' in '{result:?}'");
             result = result.replacen(&old, &new, 1);
             println!("DEBUG: After replacement: '{result:?}'");
         }
 
-        println!(
-            "DEBUG: Expression after function substitution: '{result:?}'"
-        );
+        println!("DEBUG: Expression after function substitution: '{result:?}'");
 
         // 移除可能的外部引号
         let result_without_quotes = result.trim().trim_matches('"').to_string();
@@ -348,9 +333,7 @@ impl FrameAssembler {
         // 这里简化处理，实际可能需要更复杂的表达式解析器
         // 支持 +, -, *, / 等基本运算和 min/max 函数
         let final_result = self.evaluate_math_expression(&result_without_quotes)?;
-        println!(
-            "DEBUG: Final result after math evaluation: {final_result:?}"
-        );
+        println!("DEBUG: Final result after math evaluation: {final_result:?}");
 
         Ok(final_result)
     }

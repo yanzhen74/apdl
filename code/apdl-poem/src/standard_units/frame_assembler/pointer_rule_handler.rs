@@ -12,12 +12,10 @@ impl FrameAssembler {
         &mut self,
         pointer_field: &str,
         target_field: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         // 指针字段指向目标字段的逻辑处理
-        println!(
-            "Applied pointer rule: {pointer_field} points to {target_field}"
-        );
+        println!("Applied pointer rule: {pointer_field} points to {target_field}");
         Ok(())
     }
 }

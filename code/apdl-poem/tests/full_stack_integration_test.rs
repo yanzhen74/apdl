@@ -111,14 +111,15 @@ fn test_full_stack_integration() {
         child_package_result.err()
     );
     let child_package = child_package_result.unwrap();
-    println!("Successfully parsed child package: {}", child_package.name);
+    println!(
+        "Successfully parsed child package: {name}",
+        name = child_package.name
+    );
 
     // 3. 从解析的包中提取子包字段
     let child_fields = child_package.layers[0].units.clone();
-    println!(
-        "Extracted {} child package fields from parsed package",
-        child_fields.len()
-    );
+    let len = child_fields.len();
+    println!("Extracted {len} child package fields from parsed package");
 
     // 4. 定义父包JSON (Encapsulating Packet)
     let parent_package_json = r#"
@@ -234,17 +235,13 @@ fn test_full_stack_integration() {
         parent_package_result.err()
     );
     let parent_package = parent_package_result.unwrap();
-    println!(
-        "Successfully parsed parent package: {}",
-        parent_package.name
-    );
+    let name = &parent_package.name;
+    println!("Successfully parsed parent package: {name}");
 
     // 6. 从解析的包中提取父包字段
     let parent_fields = parent_package.layers[0].units.clone();
-    println!(
-        "Extracted {} parent package fields from parsed package",
-        parent_fields.len()
-    );
+    let len = parent_fields.len();
+    println!("Extracted {len} parent package fields from parsed package");
 
     // 2. 定义连接器JSON (将Telemetry Packet嵌入到Encapsulating Packet)
     let connector_json = r#"
@@ -292,10 +289,8 @@ fn test_full_stack_integration() {
         connector_result.err()
     );
     let connector_definition = connector_result.unwrap();
-    println!(
-        "Successfully parsed connector definition: {}",
-        connector_definition.name
-    );
+    let name = &connector_definition.name;
+    println!("Successfully parsed connector definition: {name}");
 
     // 4. 创建FrameAssembler实例并添加字段定义
     let mut child_assembler = FrameAssembler::new();
@@ -305,27 +300,21 @@ fn test_full_stack_integration() {
     for unit in &child_fields {
         child_assembler.add_field(unit.clone());
     }
-    println!(
-        "Added {} child package fields to assembler",
-        child_assembler.fields.len()
-    );
+    let len = child_assembler.fields.len();
+    println!("Added {len} child package fields to assembler");
 
     for unit in &parent_fields {
         parent_assembler.add_field(unit.clone());
     }
-    println!(
-        "Added {} parent package fields to assembler",
-        parent_assembler.fields.len()
-    );
+    let len = parent_assembler.fields.len();
+    println!("Added {len} parent package fields to assembler");
 
     // 添加父包的语义规则到assembler
     for rule in &parent_package.layers[0].rules {
         parent_assembler.add_semantic_rule(rule.clone());
     }
-    println!(
-        "Added {} semantic rules to parent assembler",
-        parent_package.layers[0].rules.len()
-    );
+    let len = parent_package.layers[0].rules.len();
+    println!("Added {len} semantic rules to parent assembler");
 
     // 5. 设置子包字段值
     // 注意：如果字段在定义中具有FixedValue约束，则无需显式调用set_field_value
@@ -343,7 +332,8 @@ fn test_full_stack_integration() {
 
     // 6. 组装子包帧
     let child_frame = child_assembler.assemble_frame().unwrap();
-    println!("Child frame assembled, length: {} bytes", child_frame.len());
+    let len = child_frame.len();
+    println!("Child frame assembled, length: {len} bytes");
 
     // 7. 设置父包字段值
     // 注意：如果字段在定义中具有FixedValue约束，则无需显式调用set_field_value
@@ -387,10 +377,8 @@ fn test_full_stack_integration() {
         .build_packet(placement_config)
         .expect("Failed to build parent packet");
 
-    println!(
-        "Parent frame assembled, length: {} bytes",
-        parent_frame_data.len()
-    );
+    let len = parent_frame_data.len();
+    println!("Parent frame assembled, length: {len} bytes");
 
     // 11. 验证结果
     assert!(
@@ -399,10 +387,10 @@ fn test_full_stack_integration() {
     );
 
     // 父包应该至少包含：vcid(2) + encap_length(2) + 数据区(20) + fecf(2) = 26字节
+    let len = parent_frame_data.len();
     assert!(
         parent_frame_data.len() >= 26,
-        "Parent frame ({} bytes) should be at least 26 bytes (headers + data + footer)",
-        parent_frame_data.len()
+        "Parent frame ({len} bytes) should be at least 26 bytes (headers + data + footer)"
     );
 
     // 12. 验证父包字段映射是否正确
@@ -413,33 +401,29 @@ fn test_full_stack_integration() {
     let expected_vcid = 0x013B; // [1, 59] = 0x013B
     assert_eq!(
         vcid_value, expected_vcid,
-        "VCID should be mapped from APID [1, 59] = 0x{:04X}, got 0x{:04X}",
-        expected_vcid, vcid_value
+        "VCID should be mapped from APID [1, 59] = 0x{expected_vcid:04X}, got 0x{vcid_value:04X}"
     );
-    println!("✓ VCID correctly mapped from APID: 0x{:04X}", vcid_value);
+    println!("✓ VCID correctly mapped from APID: 0x{vcid_value:04X}");
 
     // 验证encap_length字段（由语义规则自动计算：total_length - 2）
     let encap_length_value = ((parent_frame_data[2] as u16) << 8) | (parent_frame_data[3] as u16);
     let expected_encap_length = 24; // 26 (total_length) - 2 = 24
     assert_eq!(
         encap_length_value, expected_encap_length,
-        "Encap length should be calculated by semantic rule (total_length - 2) = {}, got {}",
-        expected_encap_length, encap_length_value
+        "Encap length should be calculated by semantic rule (total_length - 2) = {expected_encap_length}, got {encap_length_value}"
     );
-    println!(
-        "✓ Encap length correctly calculated by semantic rule: {} (total_length {} - 2)",
-        encap_length_value,
-        parent_frame_data.len()
-    );
+    let total_len = parent_frame_data.len();
+    println!("✓ Encap length correctly calculated by semantic rule: {encap_length_value} (total_length {total_len} - 2)");
 
     // 13. 验证父包是否包含子包内容
     println!("\n=== 验证父包包含子包内容 ===");
 
     // 打印完整的父包内容
-    println!("父包完整内容 ({} bytes):", parent_frame_data.len());
+    let len = parent_frame_data.len();
+    println!("父包完整内容 ({len} bytes):");
     print!("  Hex: ");
     for (i, byte) in parent_frame_data.iter().enumerate() {
-        print!("{:02X} ", byte);
+        print!("{byte:02X} ");
         if (i + 1) % 16 == 0 {
             print!("\n       ");
         }
@@ -447,10 +431,11 @@ fn test_full_stack_integration() {
     println!();
 
     // 打印子包内容
-    println!("\n子包完整内容 ({} bytes):", child_frame.len());
+    let len = child_frame.len();
+    println!("\n子包完整内容 ({len} bytes):");
     print!("  Hex: ");
     for (i, byte) in child_frame.iter().enumerate() {
-        print!("{:02X} ", byte);
+        print!("{byte:02X} ");
         if (i + 1) % 16 == 0 {
             print!("\n       ");
         }
@@ -464,10 +449,11 @@ fn test_full_stack_integration() {
     // 检查子包数据是否嵌入到父包的data字段中
     let embedded_data = &parent_frame_data[data_offset..data_offset + child_frame.len()];
 
-    println!("\n父包data字段中嵌入的内容 ({} bytes):", child_frame.len());
+    let len = child_frame.len();
+    println!("\n父包data字段中嵌入的内容 ({len} bytes):");
     print!("  Hex: ");
     for (i, byte) in embedded_data.iter().enumerate() {
-        print!("{:02X} ", byte);
+        print!("{byte:02X} ");
         if (i + 1) % 16 == 0 {
             print!("\n       ");
         }
@@ -484,7 +470,9 @@ fn test_full_stack_integration() {
     // 14. 简化的验证总结
     println!("\n=== 测试总结 ===");
     println!("✓ Full stack integration test passed!");
-    println!("  - Child frame: {} bytes", child_frame.len());
-    println!("  - Parent frame: {} bytes", parent_frame_data.len());
+    let child_len = child_frame.len();
+    let parent_len = parent_frame_data.len();
+    println!("  - Child frame: {child_len} bytes");
+    println!("  - Parent frame: {parent_len} bytes");
     println!("Parent packet correctly contains child packet with proper field mappings and data embedding.");
 }

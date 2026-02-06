@@ -12,12 +12,10 @@ impl FrameAssembler {
         &mut self,
         field_name: &str,
         algorithm: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         // 应用自定义算法到指定字段
-        println!(
-            "Applied custom algorithm {algorithm} to field {field_name}"
-        );
+        println!("Applied custom algorithm {algorithm} to field {field_name}");
         Ok(())
     }
 }

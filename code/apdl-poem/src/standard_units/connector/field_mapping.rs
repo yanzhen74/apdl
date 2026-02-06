@@ -67,7 +67,7 @@ pub(super) fn apply_field_mapping_rules(
         if mapping.source_field == "channel" {
             target_assembler
                 .set_field_value(&mapping.target_field, channel.as_bytes())
-                .map_err(|e| Box::new(e))?;
+                .map_err(Box::new)?;
             dispatch_flag.push_str(channel);
             continue;
         }
@@ -83,7 +83,7 @@ pub(super) fn apply_field_mapping_rules(
             // 设置目标字段值
             target_assembler
                 .set_field_value(&mapping.target_field, &mapped_value)
-                .map_err(|e| Box::new(e))?;
+                .map_err(Box::new)?;
             println!(
                 "Mapped {} to {} with value {:?} using logic {}",
                 mapping.source_field, mapping.target_field, source_value, mapping.mapping_logic
@@ -92,7 +92,7 @@ pub(super) fn apply_field_mapping_rules(
             let target_value = target_assembler
                 .get_field_value(&mapping.target_field)
                 .unwrap_or_else(|_| mapped_value.clone());
-            dispatch_flag.push_str(&format!("{:?}", target_value));
+            dispatch_flag.push_str(&format!("{target_value:?}"));
         }
     }
     Ok(dispatch_flag)

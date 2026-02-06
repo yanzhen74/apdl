@@ -13,7 +13,7 @@ impl FrameAssembler {
         field_name: &str,
         condition: &str,
         description: &str,
-        frame_data: &mut Vec<u8>,
+        frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         println!(
             "Applying length validation rule: {description} for field {field_name} with condition {condition}"

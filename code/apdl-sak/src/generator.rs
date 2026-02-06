@@ -9,8 +9,8 @@ pub struct SpecGenerator {
     templates: HashMap<String, String>,
 }
 
-impl SpecGenerator {
-    pub fn new() -> Self {
+impl Default for SpecGenerator {
+    fn default() -> Self {
         let mut templates = HashMap::new();
         // 添加默认模板
         templates.insert(
@@ -21,6 +21,12 @@ impl SpecGenerator {
 
         Self { templates }
     }
+}
+
+impl SpecGenerator {
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// 生成协议规范
     pub fn generate(&self, template_name: &str, data: &HashMap<String, String>) -> String {
@@ -28,12 +34,12 @@ impl SpecGenerator {
             Some(template) => {
                 let mut result = template.clone();
                 for (key, value) in data {
-                    let placeholder = format!("{{{{{}}}}}", key);
+                    let placeholder = format!("{{{{{key}}}}}");
                     result = result.replace(&placeholder, value);
                 }
                 result
             }
-            None => format!("Template '{}' not found", template_name),
+            None => format!("Template '{template_name}' not found"),
         }
     }
 

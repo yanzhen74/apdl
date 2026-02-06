@@ -14,7 +14,7 @@ impl FrameAssembler {
         condition: &str,
         algorithm: &str,
         description: &str,
-        frame_data: &mut Vec<u8>,
+        frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         println!(
             "Applying periodic transmission rule: {description} for field {field_name} with condition {condition} and algorithm {algorithm}"
@@ -49,7 +49,7 @@ impl FrameAssembler {
         &mut self,
         field_name: &str,
         algorithm: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         println!(
             "Handling interval-based transmission for field {field_name} with algorithm {algorithm}"
@@ -81,7 +81,7 @@ impl FrameAssembler {
         &mut self,
         field_name: &str,
         algorithm: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         println!(
             "Handling timer-based transmission for field {field_name} with algorithm {algorithm}"
@@ -113,7 +113,7 @@ impl FrameAssembler {
         &mut self,
         field_name: &str,
         algorithm: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         println!(
             "Handling schedule-based transmission for field {field_name} with algorithm {algorithm}"
@@ -145,7 +145,7 @@ impl FrameAssembler {
         &mut self,
         field_name: &str,
         algorithm: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         println!(
             "Handling event-driven transmission for field {field_name} with algorithm {algorithm}"
@@ -178,7 +178,7 @@ impl FrameAssembler {
         field_name: &str,
         condition: &str,
         algorithm: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         println!(
             "Handling custom periodic condition '{condition}' for field {field_name} with algorithm {algorithm}"

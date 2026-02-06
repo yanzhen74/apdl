@@ -55,30 +55,29 @@ fn test_parse_child_package_dsl() {
     "#;
 
     println!("Original DSL:");
-    println!("{}", child_package_dsl);
+    println!("{child_package_dsl}");
     println!("---");
 
     println!("Parsing child package DSL...");
     match PackageParser::parse_package_definition(child_package_dsl) {
         Ok(package) => {
             println!("Successfully parsed package: {}", package.name);
-            println!("Package has {} layer(s)", package.layers.len());
+            let layer_count = package.layers.len();
+            println!("Package has {layer_count} layer(s)");
             for (i, layer) in package.layers.iter().enumerate() {
-                println!(
-                    "Layer {}: {} has {} unit(s)",
-                    i,
-                    layer.name,
-                    layer.units.len()
-                );
+                let unit_count = layer.units.len();
+                let layer_name = &layer.name;
+                println!("Layer {i}: {layer_name} has {unit_count} unit(s)");
                 for (j, unit) in layer.units.iter().enumerate() {
-                    println!("  Unit {}: {}", j, unit.field_id);
+                    let field_id = &unit.field_id;
+                    println!("  Unit {j}: {field_id}");
                 }
             }
         }
         Err(e) => {
-            println!("Failed to parse child package DSL: {}", e);
-            // 不再panic，以便我们可以看到错误信息
-            println!("Error details: {}", e);
+            println!("Failed to parse child package DSL: {e}");
+            // 不再panic,以便我们可以看到错误信息
+            println!("Error details: {e}");
         }
     }
 }

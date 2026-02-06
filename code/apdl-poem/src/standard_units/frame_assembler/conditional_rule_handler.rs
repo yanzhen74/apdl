@@ -11,7 +11,7 @@ impl FrameAssembler {
     pub fn apply_conditional_rule(
         &mut self,
         condition: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         // 解析条件表达式，例如 "fieldC if fieldA.value == 0x01"
         // 这里我们实现一个简单的条件处理逻辑
@@ -39,11 +39,12 @@ impl FrameAssembler {
                             // 获取字段值
                             if let Ok(field_value) = self.get_field_value(field_name) {
                                 // 解析期望值
-                                let expected_value = if value_str.starts_with("0x") {
-                                    u64::from_str_radix(&value_str[2..], 16).unwrap_or(0)
-                                } else {
-                                    value_str.parse::<u64>().unwrap_or(0)
-                                };
+                                let expected_value =
+                                    if let Some(hex_str) = value_str.strip_prefix("0x") {
+                                        u64::from_str_radix(hex_str, 16).unwrap_or(0)
+                                    } else {
+                                        value_str.parse::<u64>().unwrap_or(0)
+                                    };
 
                                 // 比较值
                                 let actual_value = self.bytes_to_u64(&field_value);

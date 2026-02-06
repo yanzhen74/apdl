@@ -4,6 +4,7 @@
 
 use eframe::egui;
 
+#[derive(Default)]
 pub struct GuiApp;
 
 impl GuiApp {

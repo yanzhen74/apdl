@@ -2,6 +2,7 @@
 //!
 //! 提供REST API接口
 
+#[derive(Default)]
 pub struct RestApiServer;
 
 impl RestApiServer {

@@ -5,19 +5,22 @@
 use apdl_core::protocol_meta::UnitMeta;
 
 /// 元数据转换器
+#[derive(Default)]
 pub struct MetaConverter;
 
 impl MetaConverter {
     pub fn new() -> Self {
-        Self {}
+        Self
     }
 
     /// 将UnitMeta转换为JSON格式
     pub fn to_json(&self, meta: &UnitMeta) -> Result<String, Box<dyn std::error::Error>> {
-        // 这里使用简化实现，实际应使用serde进行序列化
+        // 这里使用简化实现,实际应使用serde进行序列化
+        let id = &meta.id;
+        let name = &meta.name;
+        let version = &meta.version;
         Ok(format!(
-            "{{\"id\": \"{}\", \"name\": \"{}\", \"version\": \"{}\"}}",
-            meta.id, meta.name, meta.version
+            "{{\"id\": \"{id}\", \"name\": \"{name}\", \"version\": \"{version}\"}}"
         ))
     }
 

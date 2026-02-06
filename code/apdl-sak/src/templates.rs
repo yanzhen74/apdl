@@ -9,8 +9,8 @@ pub struct TemplateEngine {
     templates: HashMap<String, String>,
 }
 
-impl TemplateEngine {
-    pub fn new() -> Self {
+impl Default for TemplateEngine {
+    fn default() -> Self {
         let mut templates = HashMap::new();
 
         // 添加CCSDS标准模板
@@ -27,6 +27,12 @@ impl TemplateEngine {
 
         Self { templates }
     }
+}
+
+impl TemplateEngine {
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// 渲染模板
     pub fn render(&self, template_name: &str, context: &HashMap<String, String>) -> String {
@@ -34,12 +40,12 @@ impl TemplateEngine {
             Some(template) => {
                 let mut result = template.clone();
                 for (key, value) in context {
-                    let placeholder = format!("{{{{{}}}}}", key);
+                    let placeholder = format!("{{{{{key}}}}}");
                     result = result.replace(&placeholder, value);
                 }
                 result
             }
-            None => format!("Template '{}' not found", template_name),
+            None => format!("Template '{template_name}' not found"),
         }
     }
 

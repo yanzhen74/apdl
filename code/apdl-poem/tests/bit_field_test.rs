@@ -65,23 +65,24 @@ fn test_bit_field_handling() {
     let multi_bit_size = assembler.get_field_size_by_name("multi_bit").unwrap();
 
     // 当前实现会将bit向上取整到字节，所以所有字段都会是1字节
-    println!("Flag1 size: {} bytes", flag1_size);
-    println!("Flag2 size: {} bytes", flag2_size);
-    println!("Multi-bit size: {} bytes", multi_bit_size);
+    println!("Flag1 size: {flag1_size} bytes");
+    println!("Flag2 size: {flag2_size} bytes");
+    println!("Multi-bit size: {multi_bit_size} bytes");
 
     // 4. 获取字段值（应该从固定值约束中获取）
     let flag1_value = assembler.get_field_value("flag1").unwrap();
     let flag2_value = assembler.get_field_value("flag2").unwrap();
     let multi_bit_value = assembler.get_field_value("multi_bit").unwrap();
 
-    println!("Flag1 value: {:?}", flag1_value);
-    println!("Flag2 value: {:?}", flag2_value);
-    println!("Multi-bit value: {:?}", multi_bit_value);
+    println!("Flag1 value: {flag1_value:?}");
+    println!("Flag2 value: {flag2_value:?}");
+    println!("Multi-bit value: {multi_bit_value:?}");
 
     // 5. 组装帧
     let frame = assembler.assemble_frame().unwrap();
-    println!("Assembled frame: {:?}", frame);
-    println!("Frame length: {} bytes", frame.len());
+    println!("Assembled frame: {frame:?}");
+    let frame_len = frame.len();
+    println!("Frame length: {frame_len} bytes");
 
     // 6. 由于当前实现将bit字段当作字节处理，结果可能不是最优的
     // 我们需要一个更好的bit字段处理机制
@@ -114,10 +115,10 @@ fn test_bit_field_with_explicit_values() {
     let value = assembler.get_field_value("control_bits").unwrap();
     assert_eq!(value, vec![0x0B]);
 
-    println!("Control bits value: {:?}", value);
+    println!("Control bits value: {value:?}");
 
     let frame = assembler.assemble_frame().unwrap();
-    println!("Frame with control bits: {:?}", frame);
+    println!("Frame with control bits: {frame:?}");
 }
 
 #[test]
@@ -195,8 +196,9 @@ fn test_mixed_bit_and_byte_fields() {
     assembler.add_field(bit_field_3);
 
     let frame = assembler.assemble_frame().unwrap();
-    println!("Mixed field frame: {:?}", frame);
-    println!("Mixed field frame length: {} bytes", frame.len());
+    println!("Mixed field frame: {frame:?}");
+    let frame_len = frame.len();
+    println!("Mixed field frame length: {frame_len} bytes");
 
     // 验证frame长度为2字节 (byte field 1字节 + 所有bit字段打包成1字节)
     assert_eq!(
@@ -214,6 +216,6 @@ fn test_mixed_bit_and_byte_fields() {
     );
     assert_eq!(frame[1], 0xCF, "Second byte should contain all bit fields packed: bit1(1) + bit2(10) + bit3(01111) = 11001111 = 0xCF");
 
-    // 测试通过，证明frame assembler已按要求实现bit字段的紧凑打包
-    println!("Expected: [0xFF, 0xCF] = [255, 207], Actual: {:?}", frame);
+    // 测试通过,证明frame assembler已按要求实现bit字段的紧凑打包
+    println!("Expected: [0xFF, 0xCF] = [255, 207], Actual: {frame:?}");
 }

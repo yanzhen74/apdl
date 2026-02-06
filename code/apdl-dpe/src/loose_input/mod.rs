@@ -2,6 +2,7 @@
 //!
 //! 提供对非标准格式输入的适配功能
 
+#[derive(Default)]
 pub struct LooseInputAdapter;
 
 impl LooseInputAdapter {

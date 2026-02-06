@@ -1,5 +1,5 @@
 //! APDL (APDS Protocol Definition Language) Application
-//! 
+//!
 //! Main entry point for the APDL system.
 
 use clap::Parser;
@@ -22,18 +22,18 @@ async fn main() {
 
     println!("APDL (APDS Protocol Definition Language) System");
     println!("===============================================");
-    
+
     if args.verbose {
         println!("Verbose mode enabled");
     }
-    
+
     if let Some(file) = &args.protocol_file {
-        println!("Loading protocol definition from: {}", file);
+        println!("Loading protocol definition from: {file}");
         // Here we would load and process the protocol definition
     }
-    
+
     println!("Starting APDL system...");
-    
+
     // Placeholder for the actual APDL system startup
     println!("APDL system initialized successfully!");
     println!("Ready to define and simulate protocols.");

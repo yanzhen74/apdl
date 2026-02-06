@@ -53,4 +53,19 @@ impl Channel {
     pub fn is_empty(&self) -> bool {
         self.buffer.is_empty()
     }
+
+    /// 获取信道ID
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// 获取信道类型
+    pub fn channel_type(&self) -> &ChannelType {
+        &self.channel_type
+    }
+
+    /// 获取信道容量
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
 }

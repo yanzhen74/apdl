@@ -53,15 +53,15 @@ fn test_field_default_value_with_fixed_constraint() {
     let normal_field_value = assembler.get_field_value("normal_field").unwrap();
     assert_eq!(normal_field_value, vec![0x00]); // 零填充默认值
 
-    println!("Fixed field default value: {:?}", fixed_field_value);
-    println!("Normal field default value: {:?}", normal_field_value);
+    println!("Fixed field default value: {fixed_field_value:?}");
+    println!("Normal field default value: {normal_field_value:?}");
 
     // 5. 验证组装帧的行为
     let frame = assembler.assemble_frame().unwrap();
     // 帧应该包含固定值字段的值和普通字段的零值
     assert_eq!(frame, vec![0x12, 0x34, 0x00]);
 
-    println!("Assembled frame with default values: {:?}", frame);
+    println!("Assembled frame with default values: {frame:?}");
 }
 
 #[test]
@@ -94,5 +94,5 @@ fn test_field_override_fixed_value() {
     let field_value = assembler.get_field_value("fixed_field").unwrap();
     assert_eq!(field_value, vec![0xAB, 0xCD]); // 应该是显式设置的值
 
-    println!("Overridden field value: {:?}", field_value);
+    println!("Overridden field value: {field_value:?}");
 }

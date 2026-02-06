@@ -277,9 +277,11 @@ impl PackageParser {
             } else {
                 Err(format!("Invalid Uint type: {type_str}"))
             }
-        } else if type_str.starts_with("Bit(") && type_str.ends_with(')') {
-            let num_str = &type_str[4..type_str.len() - 1];
-            if let Ok(bits) = num_str.parse::<u8>() {
+        } else if let Some(inner) = type_str
+            .strip_prefix("Bit(")
+            .and_then(|s| s.strip_suffix(")"))
+        {
+            if let Ok(bits) = inner.parse::<u8>() {
                 Ok(UnitType::Bit(bits))
             } else {
                 Err(format!("Invalid Bit type: {type_str}"))
@@ -296,8 +298,8 @@ impl PackageParser {
     /// 解析长度描述
     fn parse_length_desc(length_str: &str) -> Result<LengthDesc, String> {
         let length_str = length_str.trim();
-        if length_str.ends_with("byte") {
-            let num_str = length_str[..length_str.len() - 4].trim();
+        if let Some(num_str) = length_str.strip_suffix("byte") {
+            let num_str = num_str.trim();
             if let Ok(size) = num_str.parse::<usize>() {
                 Ok(LengthDesc {
                     size,
@@ -306,8 +308,8 @@ impl PackageParser {
             } else {
                 Err(format!("Invalid byte length: {length_str}"))
             }
-        } else if length_str.ends_with("bit") {
-            let num_str = length_str[..length_str.len() - 3].trim();
+        } else if let Some(num_str) = length_str.strip_suffix("bit") {
+            let num_str = num_str.trim();
             if let Ok(size) = num_str.parse::<usize>() {
                 Ok(LengthDesc {
                     size,
@@ -342,21 +344,27 @@ impl PackageParser {
     /// 解析作用域描述
     fn parse_scope_desc(scope_str: &str) -> Result<ScopeDesc, String> {
         let scope_str = scope_str.trim();
-        if scope_str.starts_with("layer(") && scope_str.ends_with(')') {
-            let layer_name = &scope_str[6..scope_str.len() - 1];
-            Ok(ScopeDesc::Layer(layer_name.to_string()))
-        } else if scope_str.starts_with("cross_layer(") && scope_str.ends_with(')') {
-            let layers = &scope_str[12..scope_str.len() - 1];
-            if let Some(pos) = layers.find("→") {
-                let first = layers[..pos].trim();
-                let second = layers[pos + 1..].trim();
+        if let Some(inner) = scope_str
+            .strip_prefix("layer(")
+            .and_then(|s| s.strip_suffix(")"))
+        {
+            Ok(ScopeDesc::Layer(inner.to_string()))
+        } else if let Some(inner) = scope_str
+            .strip_prefix("cross_layer(")
+            .and_then(|s| s.strip_suffix(")"))
+        {
+            if let Some(pos) = inner.find("→") {
+                let first = inner[..pos].trim();
+                let second = inner[pos + 1..].trim();
                 Ok(ScopeDesc::CrossLayer(first.to_string(), second.to_string()))
             } else {
                 Err(format!("Invalid cross_layer format: {scope_str}"))
             }
-        } else if scope_str.starts_with("global(") && scope_str.ends_with(')') {
-            let scope_name = &scope_str[7..scope_str.len() - 1];
-            Ok(ScopeDesc::Global(scope_name.to_string()))
+        } else if let Some(inner) = scope_str
+            .strip_prefix("global(")
+            .and_then(|s| s.strip_suffix(")"))
+        {
+            Ok(ScopeDesc::Global(inner.to_string()))
         } else {
             Err(format!("Invalid scope format: {scope_str}"))
         }
@@ -395,23 +403,27 @@ impl PackageParser {
     /// 解析约束条件
     fn parse_constraint(constraint_str: &str) -> Result<apdl_core::Constraint, String> {
         let constraint_str = constraint_str.trim();
-        if constraint_str.starts_with("fixed(") && constraint_str.ends_with(')') {
-            let value_str = &constraint_str[6..constraint_str.len() - 1];
+        if let Some(inner) = constraint_str
+            .strip_prefix("fixed(")
+            .and_then(|s| s.strip_suffix(")"))
+        {
             // 尝试解析十进制或十六进制值
-            let value = if value_str.starts_with("0x") || value_str.starts_with("0X") {
-                u64::from_str_radix(&value_str[2..], 16)
-                    .map_err(|_| format!("Invalid hex value: {value_str}"))?
+            let value = if inner.starts_with("0x") || inner.starts_with("0X") {
+                u64::from_str_radix(&inner[2..], 16)
+                    .map_err(|_| format!("Invalid hex value: {inner}"))?
             } else {
-                value_str
+                inner
                     .parse::<u64>()
-                    .map_err(|_| format!("Invalid decimal value: {value_str}"))?
+                    .map_err(|_| format!("Invalid decimal value: {inner}"))?
             };
             Ok(apdl_core::Constraint::FixedValue(value))
-        } else if constraint_str.starts_with("range(") && constraint_str.ends_with(')') {
-            let range_str = &constraint_str[6..constraint_str.len() - 1];
-            if let Some(double_dot_eq) = range_str.find("..=") {
-                let start_str = &range_str[..double_dot_eq];
-                let end_str = &range_str[double_dot_eq + 3..];
+        } else if let Some(inner) = constraint_str
+            .strip_prefix("range(")
+            .and_then(|s| s.strip_suffix(")"))
+        {
+            if let Some(double_dot_eq) = inner.find("..=") {
+                let start_str = &inner[..double_dot_eq];
+                let end_str = &inner[double_dot_eq + 3..];
 
                 // 解析起始值
                 let start = if start_str.starts_with("0x") || start_str.starts_with("0X") {
@@ -437,10 +449,12 @@ impl PackageParser {
             } else {
                 Err("Invalid range format, expected x..=y".to_string())
             }
-        } else if constraint_str.starts_with("enum(") && constraint_str.ends_with(')') {
-            let enum_str = &constraint_str[5..constraint_str.len() - 1];
+        } else if let Some(inner) = constraint_str
+            .strip_prefix("enum(")
+            .and_then(|s| s.strip_suffix(")"))
+        {
             let mut enums = Vec::new();
-            for pair_str in enum_str.split(',') {
+            for pair_str in inner.split(',') {
                 let pair_parts: Vec<&str> = pair_str.split('=').collect();
                 if pair_parts.len() == 2 {
                     let value_str = pair_parts[1].trim();
@@ -666,13 +680,13 @@ impl PackageParser {
                     let after_quote = &value_part[start + 1 + end + 1..];
                     if after_quote.find(';').is_some() {
                         // 在分号处分割
-                        &quoted_content
+                        quoted_content
                     } else {
                         // 没有分号，直接返回引号内容
                         quoted_content
                     }
                 } else {
-                    // 没有更多内容，直接返回引号内容
+                    // 没有更多内容,直接返回引号内容
                     quoted_content
                 };
                 Ok(final_value.trim().to_string())
@@ -697,9 +711,12 @@ impl PackageParser {
         value_part = value_part.trim();
 
         // 检查是否是带引号的值
-        if value_part.starts_with('"') && value_part.ends_with('"') && value_part.len() > 1 {
+        if let Some(inner) = value_part
+            .strip_prefix('"')
+            .and_then(|s| s.strip_suffix('"'))
+        {
             // 去掉首尾引号
-            Ok(value_part[1..value_part.len() - 1].to_string())
+            Ok(inner.to_string())
         } else {
             Ok(value_part.to_string())
         }

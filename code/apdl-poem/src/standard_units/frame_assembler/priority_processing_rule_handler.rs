@@ -13,7 +13,7 @@ impl FrameAssembler {
         field_name: &str,
         algorithm: &str,
         description: &str,
-        frame_data: &mut Vec<u8>,
+        frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         println!(
             "Applying priority processing rule: {description} for field {field_name} with algorithm {algorithm}"
@@ -48,7 +48,7 @@ impl FrameAssembler {
     fn process_priority_arbitration(
         &mut self,
         field_name: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         // 获取字段值作为优先级值
         let priority_value = if let Ok(value) = self.get_field_value(field_name) {
@@ -72,7 +72,7 @@ impl FrameAssembler {
     fn process_high_priority_first(
         &mut self,
         field_name: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         // 获取字段值作为优先级值
         let priority_value = if let Ok(value) = self.get_field_value(field_name) {
@@ -99,7 +99,7 @@ impl FrameAssembler {
     fn process_round_robin(
         &mut self,
         field_name: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         // 获取字段值用于循环处理
         let round_value = if let Ok(value) = self.get_field_value(field_name) {
@@ -121,7 +121,7 @@ impl FrameAssembler {
     fn process_fifo_priority(
         &mut self,
         field_name: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         // FIFO处理主要关注到达顺序，而不是字段值
         println!("FIFO priority processing for field {field_name}");
@@ -135,7 +135,7 @@ impl FrameAssembler {
     fn process_weighted_round_robin(
         &mut self,
         field_name: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         // 获取字段值作为权重
         let weight_value = if let Ok(value) = self.get_field_value(field_name) {
@@ -159,7 +159,7 @@ impl FrameAssembler {
     fn process_default_priority(
         &mut self,
         field_name: &str,
-        _frame_data: &mut Vec<u8>,
+        _frame_data: &mut [u8],
     ) -> Result<(), ProtocolError> {
         // 默认处理方式：记录优先级信息
         let priority_value = if let Ok(value) = self.get_field_value(field_name) {

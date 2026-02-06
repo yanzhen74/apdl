@@ -12,15 +12,14 @@ pub enum ExportFormat {
 }
 
 /// 协议规范导出器
+#[derive(Default)]
 pub struct ProtocolExporter {
     _formats: HashMap<String, Box<dyn ExportFormatHandler>>,
 }
 
 impl ProtocolExporter {
     pub fn new() -> Self {
-        Self {
-            _formats: HashMap::new(),
-        }
+        Self::default()
     }
 
     pub fn export(
@@ -45,7 +44,7 @@ pub struct MarkdownExporter;
 
 impl ExportFormatHandler for MarkdownExporter {
     fn export(&self, content: &str) -> String {
-        format!("# Protocol Specification\n\n{}", content)
+        format!("# Protocol Specification\n\n{content}")
     }
 }
 

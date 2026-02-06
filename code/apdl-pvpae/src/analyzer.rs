@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 /// 性能指标
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PerformanceMetrics {
     pub processing_time: Duration, // 处理时间
     pub throughput: f64,           // 吞吐量 (pps - 包/秒)
@@ -16,20 +16,8 @@ pub struct PerformanceMetrics {
     pub packet_loss_rate: f64,     // 丢包率 (%)
 }
 
-impl Default for PerformanceMetrics {
-    fn default() -> Self {
-        Self {
-            processing_time: Duration::new(0, 0),
-            throughput: 0.0,
-            latency: Duration::new(0, 0),
-            utilization: 0.0,
-            error_rate: 0.0,
-            packet_loss_rate: 0.0,
-        }
-    }
-}
-
 /// 性能分析器
+#[derive(Default)]
 pub struct PerformanceAnalyzer {
     metrics: HashMap<String, PerformanceMetrics>,
     start_time: Option<Instant>,
@@ -38,11 +26,7 @@ pub struct PerformanceAnalyzer {
 
 impl PerformanceAnalyzer {
     pub fn new() -> Self {
-        Self {
-            metrics: HashMap::new(),
-            start_time: None,
-            total_processed: 0,
-        }
+        Self::default()
     }
 
     /// 开始性能测量
@@ -52,10 +36,7 @@ impl PerformanceAnalyzer {
 
     /// 记录处理事件
     pub fn record_processing_event(&mut self, event_name: &str, duration: Duration) {
-        let metrics = self
-            .metrics
-            .entry(event_name.to_string())
-            .or_insert_with(|| PerformanceMetrics::default());
+        let metrics = self.metrics.entry(event_name.to_string()).or_default();
 
         metrics.processing_time = duration;
         self.total_processed += 1;

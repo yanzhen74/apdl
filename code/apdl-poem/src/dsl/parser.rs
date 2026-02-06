@@ -117,45 +117,46 @@ impl DslParserImpl {
 
         while let Some(line) = lines.next() {
             let trimmed_line = line.trim();
-            if !trimmed_line.is_empty() && !trimmed_line.starts_with("//") {
-                if trimmed_line.starts_with("package ") {
-                    // 找到包定义的开始，收集直到找到匹配的右花括号
-                    let mut package_def = String::from(trimmed_line);
-                    let mut brace_count = 0;
+            if !trimmed_line.is_empty()
+                && !trimmed_line.starts_with("//")
+                && trimmed_line.starts_with("package ")
+            {
+                // 找到包定义的开始，收集直到找到匹配的右花括号
+                let mut package_def = String::from(trimmed_line);
+                let mut brace_count = 0;
 
-                    // 计算当前行的左花括号数量
-                    for c in trimmed_line.chars() {
-                        if c == '{' {
-                            brace_count += 1;
-                        } else if c == '}' {
-                            brace_count -= 1;
-                        }
+                // 计算当前行的左花括号数量
+                for c in trimmed_line.chars() {
+                    if c == '{' {
+                        brace_count += 1;
+                    } else if c == '}' {
+                        brace_count -= 1;
                     }
+                }
 
-                    // 继续收集行直到括号平衡
-                    while brace_count > 0 {
-                        if let Some(next_line) = lines.next() {
-                            let next_trimmed = next_line.trim();
-                            package_def.push_str(" ");
-                            package_def.push_str(next_trimmed);
+                // 继续收集行直到括号平衡
+                while brace_count > 0 {
+                    if let Some(next_line) = lines.next() {
+                        let next_trimmed = next_line.trim();
+                        package_def.push(' ');
+                        package_def.push_str(next_trimmed);
 
-                            for c in next_trimmed.chars() {
-                                if c == '{' {
-                                    brace_count += 1;
-                                } else if c == '}' {
-                                    brace_count -= 1;
-                                }
+                        for c in next_trimmed.chars() {
+                            if c == '{' {
+                                brace_count += 1;
+                            } else if c == '}' {
+                                brace_count -= 1;
                             }
-                        } else {
-                            return Err("Unmatched braces in package definition".to_string());
                         }
+                    } else {
+                        return Err("Unmatched braces in package definition".to_string());
                     }
+                }
 
-                    // 解析包定义
-                    match PackageParser::parse_package_definition(&package_def) {
-                        Ok(pkg) => packages.push(pkg),
-                        Err(e) => return Err(format!("Package parse error: {e}")),
-                    }
+                // 解析包定义
+                match PackageParser::parse_package_definition(&package_def) {
+                    Ok(pkg) => packages.push(pkg),
+                    Err(e) => return Err(format!("Package parse error: {e}")),
                 }
             }
         }
@@ -197,45 +198,46 @@ impl DslParserImpl {
 
         while let Some(line) = lines.next() {
             let trimmed_line = line.trim();
-            if !trimmed_line.is_empty() && !trimmed_line.starts_with("//") {
-                if trimmed_line.starts_with("connector ") {
-                    // 找到连接器定义的开始，收集直到找到匹配的右花括号
-                    let mut connector_def = String::from(trimmed_line);
-                    let mut brace_count = 0;
+            if !trimmed_line.is_empty()
+                && !trimmed_line.starts_with("//")
+                && trimmed_line.starts_with("connector ")
+            {
+                // 找到连接器定义的开始，收集直到找到匹配的右花括号
+                let mut connector_def = String::from(trimmed_line);
+                let mut brace_count = 0;
 
-                    // 计算当前行的左花括号数量
-                    for c in trimmed_line.chars() {
-                        if c == '{' {
-                            brace_count += 1;
-                        } else if c == '}' {
-                            brace_count -= 1;
-                        }
+                // 计算当前行的左花括号数量
+                for c in trimmed_line.chars() {
+                    if c == '{' {
+                        brace_count += 1;
+                    } else if c == '}' {
+                        brace_count -= 1;
                     }
+                }
 
-                    // 继续收集行直到括号平衡
-                    while brace_count > 0 {
-                        if let Some(next_line) = lines.next() {
-                            let next_trimmed = next_line.trim();
-                            connector_def.push_str(" ");
-                            connector_def.push_str(next_trimmed);
+                // 继续收集行直到括号平衡
+                while brace_count > 0 {
+                    if let Some(next_line) = lines.next() {
+                        let next_trimmed = next_line.trim();
+                        connector_def.push(' ');
+                        connector_def.push_str(next_trimmed);
 
-                            for c in next_trimmed.chars() {
-                                if c == '{' {
-                                    brace_count += 1;
-                                } else if c == '}' {
-                                    brace_count -= 1;
-                                }
+                        for c in next_trimmed.chars() {
+                            if c == '{' {
+                                brace_count += 1;
+                            } else if c == '}' {
+                                brace_count -= 1;
                             }
-                        } else {
-                            return Err("Unmatched braces in connector definition".to_string());
                         }
+                    } else {
+                        return Err("Unmatched braces in connector definition".to_string());
                     }
+                }
 
-                    // 解析连接器定义
-                    match ConnectorParser::parse_connector_definition(&connector_def) {
-                        Ok(conn) => connectors.push(conn),
-                        Err(e) => return Err(format!("Connector parse error: {e}")),
-                    }
+                // 解析连接器定义
+                match ConnectorParser::parse_connector_definition(&connector_def) {
+                    Ok(conn) => connectors.push(conn),
+                    Err(e) => return Err(format!("Connector parse error: {e}")),
                 }
             }
         }
@@ -278,45 +280,46 @@ impl DslParserImpl {
 
         while let Some(line) = lines.next() {
             let trimmed_line = line.trim();
-            if !trimmed_line.is_empty() && !trimmed_line.starts_with("//") {
-                if trimmed_line.starts_with("protocol_stack ") {
-                    // 找到协议栈定义的开始，收集直到找到匹配的右花括号
-                    let mut stack_def = String::from(trimmed_line);
-                    let mut brace_count = 0;
+            if !trimmed_line.is_empty()
+                && !trimmed_line.starts_with("//")
+                && trimmed_line.starts_with("protocol_stack ")
+            {
+                // 找到协议栈定义的开始，收集直到找到匹配的右花括号
+                let mut stack_def = String::from(trimmed_line);
+                let mut brace_count = 0;
 
-                    // 计算当前行的左花括号数量
-                    for c in trimmed_line.chars() {
-                        if c == '{' {
-                            brace_count += 1;
-                        } else if c == '}' {
-                            brace_count -= 1;
-                        }
+                // 计算当前行的左花括号数量
+                for c in trimmed_line.chars() {
+                    if c == '{' {
+                        brace_count += 1;
+                    } else if c == '}' {
+                        brace_count -= 1;
                     }
+                }
 
-                    // 继续收集行直到括号平衡
-                    while brace_count > 0 {
-                        if let Some(next_line) = lines.next() {
-                            let next_trimmed = next_line.trim();
-                            stack_def.push_str(" ");
-                            stack_def.push_str(next_trimmed);
+                // 继续收集行直到括号平衡
+                while brace_count > 0 {
+                    if let Some(next_line) = lines.next() {
+                        let next_trimmed = next_line.trim();
+                        stack_def.push(' ');
+                        stack_def.push_str(next_trimmed);
 
-                            for c in next_trimmed.chars() {
-                                if c == '{' {
-                                    brace_count += 1;
-                                } else if c == '}' {
-                                    brace_count -= 1;
-                                }
+                        for c in next_trimmed.chars() {
+                            if c == '{' {
+                                brace_count += 1;
+                            } else if c == '}' {
+                                brace_count -= 1;
                             }
-                        } else {
-                            return Err("Unmatched braces in protocol stack definition".to_string());
                         }
+                    } else {
+                        return Err("Unmatched braces in protocol stack definition".to_string());
                     }
+                }
 
-                    // 解析协议栈定义
-                    match ProtocolStackParser::parse_protocol_stack_definition(&stack_def) {
-                        Ok(stack) => stacks.push(stack),
-                        Err(e) => return Err(format!("Protocol stack parse error: {e}")),
-                    }
+                // 解析协议栈定义
+                match ProtocolStackParser::parse_protocol_stack_definition(&stack_def) {
+                    Ok(stack) => stacks.push(stack),
+                    Err(e) => return Err(format!("Protocol stack parse error: {e}")),
                 }
             }
         }
@@ -351,18 +354,18 @@ impl DslParserImpl {
         let remaining = input;
         for part in remaining.split(';') {
             let part = part.trim();
-            if part.starts_with("constraint:") {
-                constraint = Some(parse_constraint(part[11..].trim())?);
-            } else if part.starts_with("alg:") {
-                alg = Some(parse_algorithm(part[4..].trim())?);
-            } else if part.starts_with("associate:") {
-                associate = part[10..]
+            if let Some(stripped) = part.strip_prefix("constraint:") {
+                constraint = Some(parse_constraint(stripped.trim())?);
+            } else if let Some(stripped) = part.strip_prefix("alg:") {
+                alg = Some(parse_algorithm(stripped.trim())?);
+            } else if let Some(stripped) = part.strip_prefix("associate:") {
+                associate = stripped
                     .trim()
                     .split(',')
                     .map(|s| s.trim().to_string())
                     .collect();
-            } else if part.starts_with("desc:") {
-                desc = part[5..].trim().trim_matches('"').to_string();
+            } else if let Some(stripped) = part.strip_prefix("desc:") {
+                desc = stripped.trim().trim_matches('"').to_string();
             }
         }
 
@@ -466,11 +469,11 @@ impl DslParserImpl {
         let input = input.trim();
 
         // 提取 "rule:type(" 部分
-        if !input.starts_with("rule:") {
+        let after_rule = if let Some(stripped) = input.strip_prefix("rule:") {
+            stripped.trim_start()
+        } else {
             return Err("Not a rule definition".to_string());
-        }
-
-        let after_rule = &input[5..].trim_start();
+        };
 
         // 查找第一个'('的位置
         if let Some(paren_pos) = after_rule.find('(') {

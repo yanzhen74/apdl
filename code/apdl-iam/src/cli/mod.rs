@@ -13,3 +13,9 @@ impl CommandLineInterface {
         println!("Starting command line interface...");
     }
 }
+
+impl Default for CommandLineInterface {
+    fn default() -> Self {
+        Self::new()
+    }
+}

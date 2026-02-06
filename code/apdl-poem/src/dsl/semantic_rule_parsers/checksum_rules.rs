@@ -11,8 +11,8 @@ pub fn parse_checksum_range(params: &str, rule_type: &str) -> Result<SemanticRul
     let parts: Vec<&str> = params.split(" to ").collect();
     if parts.len() == 2 {
         let start_field = parts[0].trim();
-        let start_field = if start_field.starts_with("start: ") {
-            start_field[7..].trim() // 跳过 "start: " 前缀
+        let start_field = if let Some(stripped) = start_field.strip_prefix("start: ") {
+            stripped.trim() // 跳过 "start: " 前缀
         } else {
             start_field
         };

@@ -26,7 +26,7 @@ impl ProtocolUnitManager {
         self.units.insert(id, unit);
     }
 
-    pub fn get_unit(&self, id: &str) -> Option<&Box<dyn ProtocolUnit>> {
-        self.units.get(id)
+    pub fn get_unit(&self, id: &str) -> Option<&dyn ProtocolUnit> {
+        self.units.get(id).map(|boxed| &**boxed)
     }
 }

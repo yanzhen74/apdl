@@ -4,10 +4,13 @@
 
 use std::collections::HashMap;
 
+/// 映射函数类型定义
+type MappingFunction = Box<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>;
+
 /// 字段映射器
 pub struct FieldMapper {
     /// 映射函数注册表
-    pub mapping_functions: HashMap<String, Box<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>>,
+    pub mapping_functions: HashMap<String, MappingFunction>,
 }
 
 impl FieldMapper {
@@ -67,11 +70,7 @@ impl FieldMapper {
     }
 
     /// 注册自定义映射函数
-    pub fn register_mapping_function(
-        &mut self,
-        name: String,
-        func: Box<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>,
-    ) {
+    pub fn register_mapping_function(&mut self, name: String, func: MappingFunction) {
         self.mapping_functions.insert(name, func);
     }
 

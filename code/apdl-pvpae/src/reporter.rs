@@ -53,22 +53,22 @@ impl ReportGenerator {
     /// 生成验证报告
     pub fn generate_validation_report(&self) -> String {
         let mut report = String::new();
-        report.push_str(&format!("# {}\n\n", self.report_title));
-        report.push_str(&format!("Author: {}\n\n", self.report_author));
+        let report_title = &self.report_title;
+        let report_author = &self.report_author;
+        report.push_str(&format!("# {report_title}\n\n"));
+        report.push_str(&format!("Author: {report_author}\n\n"));
         report.push_str("## Validation Results\n\n");
 
         let passed_count = self.results.iter().filter(|r| r.passed).count();
         let total_count = self.results.len();
+        let pass_rate = if total_count > 0 {
+            (passed_count as f64 / total_count as f64) * 100.0
+        } else {
+            100.0
+        };
 
         report.push_str(&format!(
-            "**Summary: {} out of {} checks passed ({:.1}%)\n\n",
-            passed_count,
-            total_count,
-            if total_count > 0 {
-                (passed_count as f64 / total_count as f64) * 100.0
-            } else {
-                100.0
-            }
+            "**Summary: {passed_count} out of {total_count} checks passed ({pass_rate:.1}%)\n\n"
         ));
 
         for (i, result) in self.results.iter().enumerate() {
@@ -77,9 +77,11 @@ impl ReportGenerator {
             } else {
                 "❌ FAIL"
             };
-            report.push_str(&format!("{}. {} - {}\n", i + 1, status, result.message));
+            let index = i + 1;
+            let message = &result.message;
+            report.push_str(&format!("{index}. {status} - {message}\n"));
             if let Some(details) = &result.details {
-                report.push_str(&format!("   - Details: {}\n", details));
+                report.push_str(&format!("   - Details: {details}\n"));
             }
             report.push('\n');
         }
@@ -90,21 +92,26 @@ impl ReportGenerator {
     /// 生成性能报告
     pub fn generate_performance_report(&self) -> String {
         let mut report = String::new();
-        report.push_str(&format!("# {}\n\n", self.report_title));
-        report.push_str(&format!("Author: {}\n\n", self.report_author));
+        let report_title = &self.report_title;
+        let report_author = &self.report_author;
+        report.push_str(&format!("# {report_title}\n\n"));
+        report.push_str(&format!("Author: {report_author}\n\n"));
         report.push_str("## Performance Metrics\n\n");
 
         for (name, metrics) in &self.metrics {
-            report.push_str(&format!("### {}\n\n", name));
-            report.push_str(&format!("Processing Time: {:?}\n", metrics.processing_time));
-            report.push_str(&format!("Throughput: {:.2} pps\n", metrics.throughput));
-            report.push_str(&format!("Latency: {:?}\n", metrics.latency));
-            report.push_str(&format!("Utilization: {:.2}%\n", metrics.utilization));
-            report.push_str(&format!("Error Rate: {:.2}%\n", metrics.error_rate));
-            report.push_str(&format!(
-                "Packet Loss Rate: {:.2}%\n\n",
-                metrics.packet_loss_rate
-            ));
+            report.push_str(&format!("### {name}\n\n"));
+            let processing_time = metrics.processing_time;
+            let throughput = metrics.throughput;
+            let latency = metrics.latency;
+            let utilization = metrics.utilization;
+            let error_rate = metrics.error_rate;
+            let packet_loss_rate = metrics.packet_loss_rate;
+            report.push_str(&format!("Processing Time: {processing_time:?}\n"));
+            report.push_str(&format!("Throughput: {throughput:.2} pps\n"));
+            report.push_str(&format!("Latency: {latency:?}\n"));
+            report.push_str(&format!("Utilization: {utilization:.2}%\n"));
+            report.push_str(&format!("Error Rate: {error_rate:.2}%\n"));
+            report.push_str(&format!("Packet Loss Rate: {packet_loss_rate:.2}%\n\n"));
         }
 
         report
@@ -113,8 +120,10 @@ impl ReportGenerator {
     /// 生成汇总报告
     pub fn generate_summary_report(&self) -> String {
         let mut report = String::new();
-        report.push_str(&format!("# {} - Summary Report\n\n", self.report_title));
-        report.push_str(&format!("Author: {}\n\n", self.report_author));
+        let report_title = &self.report_title;
+        let report_author = &self.report_author;
+        report.push_str(&format!("# {report_title} - Summary Report\n\n"));
+        report.push_str(&format!("Author: {report_author}\n\n"));
 
         // 添加验证摘要
         let passed_count = self.results.iter().filter(|r| r.passed).count();
@@ -127,17 +136,17 @@ impl ReportGenerator {
 
         report.push_str("## Validation Summary\n\n");
         report.push_str(&format!(
-            "Overall validation success rate: {:.1}% ({} out of {} checks passed)\n\n",
-            validation_success_rate, passed_count, total_count
+            "Overall validation success rate: {validation_success_rate:.1}% ({passed_count} out of {total_count} checks passed)\n\n"
         ));
 
         // 添加性能摘要
         report.push_str("## Performance Summary\n\n");
         if !self.metrics.is_empty() {
             for (name, metrics) in &self.metrics {
+                let throughput = metrics.throughput;
+                let latency = metrics.latency;
                 report.push_str(&format!(
-                    "- {}: {:.2} pps throughput, {:?} latency\n",
-                    name, metrics.throughput, metrics.latency
+                    "- {name}: {throughput:.2} pps throughput, {latency:?} latency\n"
                 ));
             }
         } else {

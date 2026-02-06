@@ -3,7 +3,7 @@
 //! 实现协议合理性的验证功能
 
 use crate::reporter::ValidationResult;
-use apdl_core::{error::ProtocolError, ProtocolUnit};
+use apdl_core::ProtocolUnit;
 use std::collections::HashMap;
 
 /// 验证类型
@@ -17,15 +17,14 @@ pub enum VerificationType {
 }
 
 /// 协议验证器
+#[derive(Default)]
 pub struct ProtocolVerifier {
     verifications: HashMap<String, VerificationType>,
 }
 
 impl ProtocolVerifier {
     pub fn new() -> Self {
-        Self {
-            verifications: HashMap::new(),
-        }
+        Self::default()
     }
 
     /// 添加验证项
@@ -38,7 +37,7 @@ impl ProtocolVerifier {
         let passed = !data.is_empty(); // 简单的非空验证
         ValidationResult {
             passed,
-            message: format!("Format verification for {}", expected_format),
+            message: format!("Format verification for {expected_format}"),
             details: if passed {
                 None
             } else {
@@ -64,10 +63,10 @@ impl ProtocolVerifier {
                             None
                         } else {
                             Some(format!(
-                                "Original: {} bytes, Unpacked: {} bytes, Remaining: {} bytes",
-                                original_data.len(),
-                                unpacked.len(),
-                                remaining.len()
+                                "Original: {orig_len} bytes, Unpacked: {unpacked_len} bytes, Remaining: {remaining_len} bytes",
+                                orig_len = original_data.len(),
+                                unpacked_len = unpacked.len(),
+                                remaining_len = remaining.len()
                             ))
                         },
                     }
@@ -109,13 +108,13 @@ impl ProtocolVerifier {
         let passed = meta.standard.contains(standard);
         ValidationResult {
             passed,
-            message: format!("Compliance verification against {}", standard),
+            message: format!("Compliance verification against {standard}"),
             details: if passed {
                 None
             } else {
                 Some(format!(
-                    "Expected standard '{}', got '{}'",
-                    standard, meta.standard
+                    "Expected standard '{standard}', got '{actual}'",
+                    actual = meta.standard
                 ))
             },
         }

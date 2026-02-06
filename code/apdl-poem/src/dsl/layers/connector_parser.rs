@@ -80,9 +80,8 @@ impl ConnectorParser {
         // 解析映射规则
         let mappings = if let Some(mappings_str) = config_obj.get("mappings") {
             //println!("DEBUG: Found mappings string: '{}'", mappings_str);
-            let parsed_mappings = Self::parse_mappings(mappings_str)?;
             //println!("DEBUG: Parsed {} mappings", parsed_mappings.len());
-            parsed_mappings
+            Self::parse_mappings(mappings_str)?
         } else {
             //println!("DEBUG: No mappings found in config_obj");
             Vec::new()
@@ -135,8 +134,7 @@ impl ConnectorParser {
         let mut paren_depth = 0;
         let mut last_char_was_colon = false;
 
-        let mut chars = text.chars().peekable();
-        while let Some(c) = chars.next() {
+        for c in text.chars() {
             if escape_next {
                 if in_value {
                     current_value.push(c);
@@ -318,17 +316,17 @@ impl ConnectorParser {
         if trimmed.starts_with('[') && trimmed.ends_with(']') {
             // 提取方括号内容
             let content = Self::extract_array_content(trimmed)?;
-            Self::parse_mappings_from_content(&content)
+            Self::parse_mappings_from_content(content)
         } else if trimmed.starts_with('{') && trimmed.ends_with('}') {
             // 如果是花括号格式，提取内容并解析
             let content = Self::extract_braced_content(trimmed)?;
-            Self::parse_mappings_from_content(&content)
+            Self::parse_mappings_from_content(content)
         } else {
             // 尝试两种方式提取内容
             if let Ok(content) = Self::extract_array_content(trimmed) {
-                Self::parse_mappings_from_content(&content)
+                Self::parse_mappings_from_content(content)
             } else if let Ok(content) = Self::extract_braced_content(trimmed) {
-                Self::parse_mappings_from_content(&content)
+                Self::parse_mappings_from_content(content)
             } else {
                 // 如果都不是，则直接解析原始内容
                 Self::parse_mappings_from_content(trimmed)
@@ -355,7 +353,7 @@ impl ConnectorParser {
                 Self::parse_object(clean_item)?
             } else {
                 // 如果不是完整的对象格式，尝试包装
-                Self::parse_object(&format!("{{{}}}", clean_item))?
+                Self::parse_object(&format!("{{{clean_item}}}"))?
             };
 
             let source_field = obj_props

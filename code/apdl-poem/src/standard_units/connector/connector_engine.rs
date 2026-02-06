@@ -61,7 +61,7 @@ impl ConnectorEngine {
 
         // 2. 根据dispatch_flag进行分路
         if !dispatch_flag.is_empty() {
-            println!("Dispatch flag: {}", dispatch_flag);
+            println!("Dispatch flag: {dispatch_flag}");
         }
         let child_data = ChildPacketData {
             assembler: source_assembler.clone(),
@@ -156,7 +156,7 @@ impl ConnectorEngine {
         match self.build_mpdu_packet(parent_type, mpdu_config) {
             Ok(result) => result,
             Err(e) => {
-                eprintln!("Error building MPDU packet: {}", e);
+                eprintln!("Error building MPDU packet: {e}");
                 None
             }
         }

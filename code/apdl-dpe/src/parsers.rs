@@ -19,8 +19,8 @@ pub struct MultiFormatParser {
     parsers: HashMap<ParserType, Box<dyn Parser>>,
 }
 
-impl MultiFormatParser {
-    pub fn new() -> Self {
+impl Default for MultiFormatParser {
+    fn default() -> Self {
         let mut parsers = HashMap::new();
         parsers.insert(
             ParserType::PlainText,
@@ -28,6 +28,12 @@ impl MultiFormatParser {
         );
 
         Self { parsers }
+    }
+}
+
+impl MultiFormatParser {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// 解析指定格式的文档
@@ -87,7 +93,7 @@ impl Parser for PlainTextParser {
                 let parts: Vec<&str> = line.splitn(2, ':').collect();
                 if parts.len() == 2 {
                     fields.push(ProtocolField {
-                        name: format!("field_{}", i),
+                        name: format!("field_{i}"),
                         field_type: "string".to_string(),
                         length: parts[1].len(),
                         description: parts[1].trim().to_string(),

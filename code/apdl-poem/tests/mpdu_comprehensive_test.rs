@@ -72,7 +72,8 @@ fn test_mpdu_comprehensive_scenario() {
     for i in 0..3 {
         let _new_template = create_parent_template_with_data_field_size(8);
         // 注意：当前API中没有add_parent_template方法，需要调整测试逻辑
-        println!("准备添加父包模板 #{}", i + 1);
+        let num = i + 1;
+        println!("准备添加父包模板 #{num}");
     }
 
     // 配置MPDU参数
@@ -150,10 +151,9 @@ fn test_mpdu_comprehensive_scenario() {
         match connector_engine.build_packet(&mpdu_config) {
             Some((mpdu_packet, dispatch_flag)) => {
                 println!(
-                    "第{}个MPDU包构建成功，长度: {} 字节, dispatch_flag: {}",
+                    "第{}个MPDU包构建成功，长度: {len} 字节, dispatch_flag: {dispatch_flag}",
                     i + 1,
-                    mpdu_packet.len(),
-                    dispatch_flag
+                    len = mpdu_packet.len(),
                 );
                 println!(
                     "MPDU包内容: {:?}",
@@ -163,7 +163,7 @@ fn test_mpdu_comprehensive_scenario() {
                 // 提取首导头指针（假设在前2个字节）
                 if mpdu_packet.len() >= 2 {
                     let pointer_val = ((mpdu_packet[0] as u16) << 8) | (mpdu_packet[1] as u16);
-                    println!("MPDU包首导头指针: 0x{:04X}", pointer_val);
+                    println!("MPDU包首导头指针: 0x{pointer_val:04X}");
                     results.push(pointer_val);
                 } else {
                     println!("MPDU包长度不足，无法提取指针");
@@ -171,7 +171,8 @@ fn test_mpdu_comprehensive_scenario() {
                 }
             }
             None => {
-                println!("第{}个包：没有可用的子包数据构建MPDU包", i + 1);
+                let num = i + 1;
+                println!("第{num}个包：没有可用的子包数据构建MPDU包");
                 results.push(0); // 默认值
             }
         }
@@ -179,7 +180,7 @@ fn test_mpdu_comprehensive_scenario() {
 
     // 验证结果
     println!("\n=== 验证结果 ===");
-    println!("实际首导头指针: {:?}", results);
+    println!("实际首导头指针: {results:?}");
     println!("预期首导头指针: [0, 2, 0x07FF]");
 
     // 注意：由于实际实现中的MPDU构建逻辑可能有所不同，这里我们主要验证基本功能
@@ -230,7 +231,7 @@ fn create_parent_template_with_data_field_size(data_size: usize) -> FrameAssembl
         constraint: None,
         alg: None,
         associate: vec![],
-        desc: format!("数据字段 ({} 字节)", data_size),
+        desc: format!("数据字段 ({data_size} 字节)"),
     };
 
     assembler.add_field(pointer_field);
@@ -252,10 +253,8 @@ mod mpdu_tests {
     fn test_create_parent_template() {
         let template = create_parent_template_with_data_field_size(8);
         assert_eq!(template.get_field_names().len(), 2);
-        println!(
-            "父包模板创建成功，包含 {} 个字段",
-            template.get_field_names().len()
-        );
+        let len = template.get_field_names().len();
+        println!("父包模板创建成功，包含 {len} 个字段");
     }
 
     /// 完整的MPDU测试：从JSON定义开始，包含计数器自增规则
@@ -464,9 +463,12 @@ mod mpdu_tests {
             JsonParser::parse_connector(connector_json).expect("Failed to parse connector");
 
         println!("✓ JSON解析成功");
-        println!("  - 子包: {}", child_package.name);
-        println!("  - 父包: {}", parent_package.name);
-        println!("  - 连接器: {}", connector_definition.name);
+        let name = &child_package.name;
+        println!("  - 子包: {name}");
+        let name = &parent_package.name;
+        println!("  - 父包: {name}");
+        let name = &connector_definition.name;
+        println!("  - 连接器: {name}");
 
         // 5. 创建子包组装器（3个不同长度的子包：10、4、8字节）
         let mut child_assemblers = vec![];
@@ -534,15 +536,20 @@ mod mpdu_tests {
         let mut connector_engine = ConnectorEngine::new();
 
         for (i, mut child) in child_assemblers.into_iter().enumerate() {
-            connector_engine
-                .connect(
-                    &mut child,
-                    &mut parent_assembler,
-                    "channel_0",
-                    &connector_definition.config,
-                )
-                .expect(&format!("Failed to connect child {}", i + 1));
-            println!("✓ 子包 {} 已连接", i + 1);
+            let num = i + 1;
+            match connector_engine.connect(
+                &mut child,
+                &mut parent_assembler,
+                "channel_0",
+                &connector_definition.config,
+            ) {
+                Ok(_) => {
+                    println!("✓ 子包 {num} 已连接");
+                }
+                Err(e) => {
+                    panic!("Failed to connect child {num}: {e:?}");
+                }
+            }
         }
 
         // 8. 构建MPDU父包
@@ -559,36 +566,39 @@ mod mpdu_tests {
 
         for i in 0..3 {
             // 使用正确的dispatch_flag，即VCID值 [1, 35]
-            let dispatch_flag = format!("{:?}", common_apid);
+            let dispatch_flag = format!("{common_apid:?}");
             if let Ok(Some(packet)) =
                 connector_engine.build_mpdu_packet(&dispatch_flag, placement_config)
             {
-                println!("\n父包 {} 构建成功:", i + 1);
-                println!("  长度: {} 字节", packet.len());
+                let num = i + 1;
+                println!("\n父包 {num} 构建成功:");
+                let len = packet.len();
+                println!("  长度: {len} 字节");
 
                 // 提取VCID（字节0-1）
                 let vcid = ((packet[0] as u16) << 8) | (packet[1] as u16);
-                println!("  VCID: 0x{:04X}", vcid);
+                println!("  VCID: 0x{vcid:04X}");
 
                 // 提取序列号（字节2-3）
                 let sequence = ((packet[2] as u16) << 8) | (packet[3] as u16);
-                println!("  序列号: {}", sequence);
+                println!("  序列号: {sequence}");
                 sequence_numbers.push(sequence);
 
                 // 提取指针（字节4-5）
                 let pointer = ((packet[4] as u16) << 8) | (packet[5] as u16);
-                println!("  首导头指针: 0x{:04X}", pointer);
+                println!("  首导头指针: 0x{pointer:04X}");
 
                 // 打印数据区（从字节6开始）
                 print!("  数据区: ");
-                for j in 6..packet.len() {
-                    print!("{:02X} ", packet[j]);
+                for byte in &packet[6..] {
+                    print!("{byte:02X} ");
                 }
                 println!();
 
                 parent_packets.push(packet);
             } else {
-                println!("父包 {} 构建失败或无数据", i + 1);
+                let num = i + 1;
+                println!("父包 {num} 构建失败或无数据");
                 break;
             }
         }
@@ -603,18 +613,20 @@ mod mpdu_tests {
         assert_eq!(sequence_numbers[0], 0, "第一个父包序列号应为0");
         assert_eq!(sequence_numbers[1], 1, "第二个父包序列号应为1");
         assert_eq!(sequence_numbers[2], 2, "第三个父包序列号应为2");
-        println!("✓ 序列号正确递增: {:?}", sequence_numbers);
+        println!("✓ 序列号正确递增: {sequence_numbers:?}");
 
         // 验证父包长度（vcid(2) + sequence(2) + pointer(2) + data(8) = 14字节）
         for (i, packet) in parent_packets.iter().enumerate() {
-            assert_eq!(packet.len(), 14, "父包 {} 长度应为14字节", i + 1);
+            let num = i + 1;
+            assert_eq!(packet.len(), 14, "父包 {num} 长度应为14字节");
         }
         println!("✓ 所有父包长度正确（14字节）");
 
         // 验证VCID（应该都映射自第一个子包的apid=0x0123）
         for (i, packet) in parent_packets.iter().enumerate() {
+            let num = i + 1;
             let vcid = ((packet[0] as u16) << 8) | (packet[1] as u16);
-            assert_eq!(vcid, 0x0123, "父包 {} 的VCID应为0x0123", i + 1);
+            assert_eq!(vcid, 0x0123, "父包 {num} 的VCID应为0x0123");
         }
         println!("✓ 所有父包VCID正确（0x0123）");
 
@@ -627,10 +639,7 @@ mod mpdu_tests {
         assert_eq!(pointer2, 2, "第二个父包指针应为2（子包2开始于偏移2）");
         assert_eq!(pointer3, 4, "第三个父包指针应为4（子包3开始于偏移4）");
 
-        println!(
-            "✓ 首导头指针正确: 0x{:04X}, 0x{:04X}, 0x{:04X}",
-            pointer1, pointer2, pointer3
-        );
+        println!("✓ 首导头指针正确: 0x{pointer1:04X}, 0x{pointer2:04X}, 0x{pointer3:04X}");
 
         println!("\n=== 测试通过！===\n");
     }

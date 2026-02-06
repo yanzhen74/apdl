@@ -3,7 +3,6 @@
 //! 实现纯软件协议仿真功能
 
 use apdl_core::{error::ProtocolError, ProtocolUnit};
-use std::collections::HashMap;
 
 /// 仿真器配置
 #[derive(Debug, Clone)]
