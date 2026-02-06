@@ -31,8 +31,10 @@ struct MultiplexQueue {
 
 /// 连接器引擎
 pub struct ConnectorEngine {
-    /// 子包缓存队列 - 按父包类型分类
+    /// 子包缓存队列 - 按分发标志分类
     child_packet_queues: HashMap<String, MultiplexQueue>,
+    /// 轮询索引，用于在多个队列间轮询
+    round_robin_index: std::sync::atomic::AtomicUsize,
 }
 
 impl ConnectorEngine {
@@ -40,6 +42,7 @@ impl ConnectorEngine {
     pub fn new() -> Self {
         Self {
             child_packet_queues: HashMap::new(),
+            round_robin_index: std::sync::atomic::AtomicUsize::new(0),
         }
     }
 
@@ -202,23 +205,39 @@ impl ConnectorEngine {
     }
 
     /// 构建包 - 统一接口，根据数据放置配置选择合适的构建策略
+    /// 支持轮询调度，返回(包数据, dispatch_flag)
     pub fn build_packet(
         &mut self,
-        parent_type: &str,
         placement_config: &DataPlacementConfig,
-    ) -> Option<Vec<u8>> {
+    ) -> Option<(Vec<u8>, String)> {
+        // 获取所有可用的dispatch_flag
+        let dispatch_flags: Vec<String> = self.child_packet_queues.keys().cloned().collect();
+        if dispatch_flags.is_empty() {
+            return None;
+        }
+
+        // 使用轮询索引选择下一个队列
+        let index = self
+            .round_robin_index
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            % dispatch_flags.len();
+        let selected_dispatch_flag = &dispatch_flags[index];
+
         match placement_config.strategy {
             DataPlacementStrategy::PointerBased => {
                 // 使用MPDU策略构建包
-                self.build_mpdu_packet_internal(parent_type, placement_config)
+                self.build_mpdu_packet_internal(selected_dispatch_flag, placement_config)
+                    .map(|packet| (packet, selected_dispatch_flag.clone()))
             }
             DataPlacementStrategy::Direct => {
                 // 直接放置策略：从队列中取出子包直接作为结果
-                self.build_direct_packet(parent_type)
+                self.build_direct_packet(selected_dispatch_flag)
+                    .map(|packet| (packet, selected_dispatch_flag.clone()))
             }
             DataPlacementStrategy::StreamBased => {
                 // 流式放置策略：类似MPDU但不使用指针
-                self.build_stream_packet(parent_type)
+                self.build_stream_packet(selected_dispatch_flag)
+                    .map(|packet| (packet, selected_dispatch_flag.clone()))
             }
             DataPlacementStrategy::Custom(_) => {
                 // 自定义策略，暂时返回None
