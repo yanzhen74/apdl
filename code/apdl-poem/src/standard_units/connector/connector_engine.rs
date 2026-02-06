@@ -319,89 +319,117 @@ impl ConnectorEngine {
         dispatch_flag: &str,
         mpdu_config: &DataPlacementConfig,
     ) -> Result<Option<Vec<u8>>, String> {
-        let mut current_queue = self
-            .child_packet_queues
-            .remove(dispatch_flag)
-            .ok_or("Queue not found")?;
-        // 获取父包模板
-        let mut parent_assembler = current_queue.parent_assembler;
+        // 第一阶段：收集数据
+        let (
+            mut parent_assembler,
+            capacity,
+            mut current_data,
+            mut used_bytes,
+            mut pointer_pos,
+            should_remove,
+        ) = {
+            // 先获取队列的可变引用，而不是直接remove
+            let current_queue = self
+                .child_packet_queues
+                .get_mut(dispatch_flag)
+                .ok_or("Queue not found")?;
 
-        // 计算MPDU容量（目标字段的大小）
-        let capacity = parent_assembler
-            .get_field_size_by_name(&mpdu_config.target_field)
-            .map_err(|e| {
-                format!(
-                    "Failed to get field size for '{}': {}",
-                    mpdu_config.target_field, e
-                )
-            })?;
+            // 获取父包模板
+            let mut parent_assembler = current_queue.parent_assembler.clone();
 
-        // 先处理剩余的子包数据（如果有的话）
-        let mut current_data = vec![];
-        let mut used_bytes = 0;
+            // 计算MPDU容量（目标字段的大小）
+            let capacity = parent_assembler
+                .get_field_size_by_name(&mpdu_config.target_field)
+                .map_err(|e| {
+                    format!(
+                        "Failed to get field size for '{}': {}",
+                        mpdu_config.target_field, e
+                    )
+                })?;
 
-        // 首导头指针位置初始化为0
-        let mut pointer_pos = 0;
+            // 先处理剩余的子包数据（如果有的话）
+            let mut current_data = vec![];
+            let mut used_bytes = 0;
 
-        // 如果有剩余的子包数据，先填充到当前包
-        if !current_queue.remaining_child_data.is_empty() {
-            let space_left = capacity;
-            let available = std::cmp::min(space_left, current_queue.remaining_child_data.len());
+            // 首导头指针位置初始化为0
+            let mut pointer_pos = 0;
 
-            current_data.extend_from_slice(&current_queue.remaining_child_data[..available]);
-            used_bytes += available;
+            // 如果有剩余的子包数据，先填充到当前包
+            if !current_queue.remaining_child_data.is_empty() {
+                let space_left = capacity;
+                let available = std::cmp::min(space_left, current_queue.remaining_child_data.len());
 
-            // 更新剩余数据
-            let remaining_after_fill = if available < current_queue.remaining_child_data.len() {
-                current_queue.remaining_child_data[available..].to_vec()
-            } else {
-                vec![]
-            };
+                current_data.extend_from_slice(&current_queue.remaining_child_data[..available]);
+                used_bytes += available;
 
-            // 如果当前包已满，但还有剩余数据，保存状态供下次使用
-            if used_bytes >= capacity && !remaining_after_fill.is_empty() {
-                current_queue.remaining_child_data = remaining_after_fill;
+                // 更新剩余数据
+                let remaining_after_fill = if available < current_queue.remaining_child_data.len() {
+                    current_queue.remaining_child_data[available..].to_vec()
+                } else {
+                    vec![]
+                };
+
+                // 如果当前包已满，但还有剩余数据，保存状态供下次使用
+                if used_bytes >= capacity && !remaining_after_fill.is_empty() {
+                    current_queue.remaining_child_data = remaining_after_fill;
+                } else {
+                    current_queue.remaining_child_data = vec![];
+                }
             }
-        }
 
-        // indicate that the current packet is not full
-        if used_bytes < capacity {
-            pointer_pos = 0xFFFF;
-            if used_bytes > 0 {
-                pointer_pos = 0x07FF;
+            // indicate that the current packet is not full
+            if used_bytes < capacity {
+                pointer_pos = 0xFFFF;
+                if used_bytes > 0 {
+                    pointer_pos = 0x07FF;
+                }
             }
-        }
 
-        // 从队列中获取子包并填充
-        while used_bytes < capacity && !current_queue.child_packet_queue.is_empty() {
-            if let Some(mut child) = current_queue.child_packet_queue.pop_front() {
-                if let Ok(child_data) = child.assembler.assemble_frame() {
-                    if pointer_pos == 0xFFFF || pointer_pos == 0x07FF {
-                        // 只要有子包，当前pos就是指针位置
-                        pointer_pos = used_bytes as u16;
-                    }
+            // 从队列中获取子包并填充
+            while used_bytes < capacity && !current_queue.child_packet_queue.is_empty() {
+                if let Some(mut child) = current_queue.child_packet_queue.pop_front() {
+                    if let Ok(child_data) = child.assembler.assemble_frame() {
+                        if pointer_pos == 0xFFFF || pointer_pos == 0x07FF {
+                            // 只要有子包，当前pos就是指针位置
+                            pointer_pos = used_bytes as u16;
+                        }
 
-                    // 检查是否有足够空间放置当前子包
-                    let space_left = capacity - used_bytes;
+                        // 检查是否有足够空间放置当前子包
+                        let space_left = capacity - used_bytes;
 
-                    if child_data.len() <= space_left {
-                        // 整个子包可以放入当前MPDU
-                        current_data.extend_from_slice(&child_data);
-                        used_bytes += child_data.len();
-                    } else {
-                        // 子包太大，需要分割
-                        let can_fit = &child_data[..space_left];
-                        current_data.extend_from_slice(can_fit);
-                        used_bytes += space_left;
+                        if child_data.len() <= space_left {
+                            // 整个子包可以放入当前MPDU
+                            current_data.extend_from_slice(&child_data);
+                            used_bytes += child_data.len();
+                        } else {
+                            // 子包太大，需要分割
+                            let can_fit = &child_data[..space_left];
+                            current_data.extend_from_slice(can_fit);
+                            used_bytes += space_left;
 
-                        // 保存剩余的子包数据供下次使用
-                        let remaining_child = child_data[space_left..].to_vec();
-                        current_queue.remaining_child_data = remaining_child;
+                            // 保存剩余的子包数据供下次使用
+                            let remaining_child = child_data[space_left..].to_vec();
+                            current_queue.remaining_child_data = remaining_child;
+                        }
                     }
                 }
             }
-        }
 
+            // 检查是否应该移除队列：只有当child_packet_queue为空且没有剩余数据时
+            let should_remove = current_queue.child_packet_queue.is_empty()
+                && current_queue.remaining_child_data.is_empty();
+
+            (
+                parent_assembler,
+                capacity,
+                current_data,
+                used_bytes,
+                pointer_pos,
+                should_remove,
+            )
+        }; // current_queue的可变引用在这里释放
+
+        // 第二阶段：处理填充和组装（不持有队列引用）
         // 如果当前包还没有填满，添加填充码
         if used_bytes < capacity {
             let padding_size = capacity - used_bytes;
@@ -426,6 +454,10 @@ impl ConnectorEngine {
         {
             // 组装完整的帧并返回
             if let Ok(final_frame) = parent_assembler.assemble_frame() {
+                // 只有当child_packet_queue为空且没有剩余数据时，才移除队列
+                if should_remove {
+                    self.child_packet_queues.remove(dispatch_flag);
+                }
                 return Ok(Some(final_frame));
             }
         }
