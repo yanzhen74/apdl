@@ -263,36 +263,41 @@ impl ConnectorEngine {
 
     /// 构建直接放置包
     fn build_direct_packet(&mut self, parent_type: &str) -> Option<Vec<u8>> {
-        // 从队列中获取子包并直接返回
-        if let Some(mut queue_item) = self.child_packet_queues.remove(parent_type) {
-            if let Some(mut child_data) = queue_item.child_packet_queue.pop_front() {
-                if let Ok(frame) = child_data.assembler.assemble_frame() {
-                    // 将队列放回去
-                    self.child_packet_queues
-                        .insert(parent_type.to_string(), queue_item);
-                    return Some(frame);
-                } else {
-                    // 如果出错，仍要把队列放回去
-                    self.child_packet_queues
-                        .insert(parent_type.to_string(), queue_item);
-                }
-            } else {
-                // 如果队列为空，仍要把队列放回去
-                self.child_packet_queues
-                    .insert(parent_type.to_string(), queue_item);
-            }
+        // 第一阶段：收集数据（持有可变引用）
+        let (frame, should_remove) = {
+            let current_queue = self.child_packet_queues.get_mut(parent_type)?;
+
+            // 从队列中获取子包
+            let mut child_data = current_queue.child_packet_queue.pop_front()?;
+
+            // 组装子包
+            let frame = child_data.assembler.assemble_frame().ok()?;
+
+            // 检查是否应该移除队列：只有当child_packet_queue为空且没有剩余数据时
+            let should_remove = current_queue.child_packet_queue.is_empty()
+                && current_queue.remaining_child_data.is_empty();
+
+            (frame, should_remove)
+        }; // current_queue的可变引用在这里释放
+
+        // 第二阶段：清理队列
+        if should_remove {
+            self.child_packet_queues.remove(parent_type);
         }
-        None
+
+        Some(frame)
     }
 
     /// 构建流式放置包
     fn build_stream_packet(&mut self, parent_type: &str) -> Option<Vec<u8>> {
-        // 简单的流式放置：将多个子包连接成一个大的数据块
-        let mut result = Vec::new();
+        // 第一阶段：收集数据（持有可变引用）
+        let (result, should_remove) = {
+            let current_queue = self.child_packet_queues.get_mut(parent_type)?;
 
-        if let Some(mut queue_item) = self.child_packet_queues.remove(parent_type) {
+            let mut result = Vec::new();
+
             // 取出所有可用的子包并连接它们的数据
-            while let Some(mut child_data) = queue_item.child_packet_queue.pop_front() {
+            while let Some(mut child_data) = current_queue.child_packet_queue.pop_front() {
                 if let Ok(frame) = child_data.assembler.assemble_frame() {
                     result.extend_from_slice(&frame);
                     // 限制结果大小以防止无限增长
@@ -301,9 +306,17 @@ impl ConnectorEngine {
                     }
                 }
             }
-            // 将队列放回去（即使可能已空）
-            self.child_packet_queues
-                .insert(parent_type.to_string(), queue_item);
+
+            // 检查是否应该移除队列：只有当child_packet_queue为空且没有剩余数据时
+            let should_remove = current_queue.child_packet_queue.is_empty()
+                && current_queue.remaining_child_data.is_empty();
+
+            (result, should_remove)
+        }; // current_queue的可变引用在这里释放
+
+        // 第二阶段：清理队列
+        if should_remove {
+            self.child_packet_queues.remove(parent_type);
         }
 
         if result.is_empty() {
