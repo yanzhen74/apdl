@@ -115,7 +115,7 @@ impl ConnectorEngine {
                 target_assembler
                     .set_field_value(&mapping.target_field, channel.as_bytes())
                     .map_err(|e| Box::new(e))?;
-                dispatch_flag.push_str("channel");
+                dispatch_flag.push_str(channel);
                 continue;
             }
             // 获取源字段值
@@ -135,7 +135,11 @@ impl ConnectorEngine {
                     "Mapped {} to {} with value {:?} using logic {}",
                     mapping.source_field, mapping.target_field, source_value, mapping.mapping_logic
                 );
-                dispatch_flag.push_str(&mapping.target_field);
+                // 将目标字段的值添加到dispatch_flag
+                let target_value = target_assembler
+                    .get_field_value(&mapping.target_field)
+                    .unwrap_or_else(|_| mapped_value.clone());
+                dispatch_flag.push_str(&format!("{:?}", target_value));
             }
         }
         Ok(dispatch_flag)
