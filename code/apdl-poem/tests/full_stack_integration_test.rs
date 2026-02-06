@@ -173,8 +173,8 @@ fn test_full_stack_integration() {
                             "field_id": "data",
                             "unit_type": "RawData",
                             "length": {
-                                "size": 0,
-                                "unit": "Dynamic"
+                                "size": 20,
+                                "unit": "Byte"
                             },
                             "scope": {
                                 "Global": "encap"
@@ -354,8 +354,8 @@ fn test_full_stack_integration() {
         .set_field_value("encap_length", &[0x00, 0x00])
         .unwrap(); // Will be calculated
     parent_assembler
-        .set_field_value("data", &[0x00; 0])
-        .unwrap(); // Will be updated with child data
+        .set_field_value("data", &[0x00; 20])
+        .unwrap(); // Will be updated with child data (20 bytes)
     parent_assembler
         .set_field_value("fecf", &[0x00, 0x00])
         .unwrap(); // Will be calculated
@@ -376,70 +376,115 @@ fn test_full_stack_integration() {
         .expect("Failed to connect packages");
     println!("Applied field mapping and data placement via connector engine");
 
-    // 11. 现在长度和校验和将由语义规则自动处理，无需手动计算
-    // 长度规则和校验和规则将在assemble_frame期间自动应用
+    // 10. 构建包含子包数据的父包
+    let placement_config = connector_definition
+        .config
+        .data_placement
+        .as_ref()
+        .expect("Data placement config should be present");
 
-    // 12. 组装最终的父包帧 - 长度和校验和将由语义规则自动计算
-    let parent_frame = parent_assembler.assemble_frame().unwrap();
+    let (parent_frame_data, _dispatch_flag) = connector_engine
+        .build_packet(placement_config)
+        .expect("Failed to build parent packet");
+
     println!(
         "Parent frame assembled, length: {} bytes",
-        parent_frame.len()
+        parent_frame_data.len()
     );
 
-    // 13. 验证结果
-    assert!(!parent_frame.is_empty(), "Parent frame should not be empty");
+    // 11. 验证结果
     assert!(
-        parent_frame.len() > child_frame.len(),
-        "Parent frame ({} bytes) should be larger than child frame ({} bytes)",
-        parent_frame.len(),
-        child_frame.len()
+        !parent_frame_data.is_empty(),
+        "Parent frame should not be empty"
     );
 
-    // 14. 验证子包数据确实嵌入到了父包中
-    let data_field_pos = parent_assembler.field_index.get("data").unwrap();
-    let data_field = &parent_assembler.fields[*data_field_pos];
-    let data_field_size = parent_assembler.get_field_size(data_field).unwrap();
+    // 父包应该至少包含：vcid(2) + encap_length(2) + 数据区(20) + fecf(2) = 26字节
+    assert!(
+        parent_frame_data.len() >= 26,
+        "Parent frame ({} bytes) should be at least 26 bytes (headers + data + footer)",
+        parent_frame_data.len()
+    );
 
-    if data_field_size >= child_frame.len() {
-        // 找到数据字段在帧中的位置
-        let data_offset = parent_assembler
-            .calculate_field_offset(*data_field_pos)
-            .unwrap();
-        let data_slice = &parent_frame[data_offset..data_offset + child_frame.len()];
+    // 12. 验证父包字段映射是否正确
+    println!("\n=== 验证父包字段映射 ===");
 
-        assert_eq!(
-            data_slice,
-            child_frame.as_slice(),
-            "Parent packet's data field should contain child packet"
-        );
-        println!("Verified that parent packet contains child packet in data field");
-    } else {
-        println!(
-            "Data field size ({}) is smaller than child frame size ({}), partial embedding",
-            data_field_size,
-            child_frame.len()
-        );
+    // 验证vcid字段（应该映射自apid = [1, 59]）
+    let vcid_value = ((parent_frame_data[0] as u16) << 8) | (parent_frame_data[1] as u16);
+    let expected_vcid = 0x013B; // [1, 59] = 0x013B
+    assert_eq!(
+        vcid_value, expected_vcid,
+        "VCID should be mapped from APID [1, 59] = 0x{:04X}, got 0x{:04X}",
+        expected_vcid, vcid_value
+    );
+    println!("✓ VCID correctly mapped from APID: 0x{:04X}", vcid_value);
+
+    // 验证encap_length字段（由语义规则自动计算：total_length - 2）
+    let encap_length_value = ((parent_frame_data[2] as u16) << 8) | (parent_frame_data[3] as u16);
+    let expected_encap_length = 24; // 26 (total_length) - 2 = 24
+    assert_eq!(
+        encap_length_value, expected_encap_length,
+        "Encap length should be calculated by semantic rule (total_length - 2) = {}, got {}",
+        expected_encap_length, encap_length_value
+    );
+    println!(
+        "✓ Encap length correctly calculated by semantic rule: {} (total_length {} - 2)",
+        encap_length_value,
+        parent_frame_data.len()
+    );
+
+    // 13. 验证父包是否包含子包内容
+    println!("\n=== 验证父包包含子包内容 ===");
+
+    // 打印完整的父包内容
+    println!("父包完整内容 ({} bytes):", parent_frame_data.len());
+    print!("  Hex: ");
+    for (i, byte) in parent_frame_data.iter().enumerate() {
+        print!("{:02X} ", byte);
+        if (i + 1) % 16 == 0 {
+            print!("\n       ");
+        }
     }
+    println!();
 
-    // 15. 额外验证：检查长度字段是否正确设置
-    let encap_length_value = parent_assembler.get_field_value("encap_length").unwrap();
-    let calculated_length = ((encap_length_value[0] as u16) << 8) | (encap_length_value[1] as u16);
+    // 打印子包内容
+    println!("\n子包完整内容 ({} bytes):", child_frame.len());
+    print!("  Hex: ");
+    for (i, byte) in child_frame.iter().enumerate() {
+        print!("{:02X} ", byte);
+        if (i + 1) % 16 == 0 {
+            print!("\n       ");
+        }
+    }
+    println!();
 
-    // 计算预期长度（除了FECF之外的所有字段）
-    let expected_length: usize = parent_assembler
-        .fields
-        .iter()
-        .filter(|f| f.field_id != "fecf") // 不包括FECF
-        .map(|f| parent_assembler.get_field_size(f).unwrap_or(1))
-        .sum();
+    // 数据字段从偏移4开始（vcid(2) + encap_length(2)）
+    let data_offset = 4;
+    let data_field_size = 20;
+
+    // 检查子包数据是否嵌入到父包的data字段中
+    let embedded_data = &parent_frame_data[data_offset..data_offset + child_frame.len()];
+
+    println!("\n父包data字段中嵌入的内容 ({} bytes):", child_frame.len());
+    print!("  Hex: ");
+    for (i, byte) in embedded_data.iter().enumerate() {
+        print!("{:02X} ", byte);
+        if (i + 1) % 16 == 0 {
+            print!("\n       ");
+        }
+    }
+    println!();
 
     assert_eq!(
-        calculated_length as usize, expected_length,
-        "Encapsulation length field should match calculated length (expected: {}, got: {})",
-        expected_length, calculated_length
+        embedded_data,
+        child_frame.as_slice(),
+        "Parent packet's data field should contain the complete child packet"
     );
-    println!("Verified encapsulation length field: {}", calculated_length);
+    println!("✓ 父包的data字段正确包含了完整的子包数据");
 
-    println!("Full stack integration test completed successfully!");
-    println!("Parent packet correctly contains child packet with proper field mappings, data embedding, and validation.");
+    // 14. 简化的验证总结
+    println!("\n=== 测试总结 ===");
+    println!("✓ Full stack integration test passed!");
+    println!("  - Child frame: {} bytes", child_frame.len());
+    println!("  - Parent frame: {} bytes", parent_frame_data.len());
+    println!("Parent packet correctly contains child packet with proper field mappings and data embedding.");
 }
