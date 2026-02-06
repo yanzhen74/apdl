@@ -144,6 +144,7 @@ pub(super) fn build_mpdu_packet(
         .is_ok()
     {
         // 组装完整的帧并返回
+        // 注意：assemble_frame会自动触发所有语义规则（包括SequenceControl）
         if let Ok(final_frame) = parent_assembler.assemble_frame() {
             // 更新队列中的parent_assembler以保持状态（如序列号）
             if let Some(queue) = child_packet_queues.get_mut(dispatch_flag) {

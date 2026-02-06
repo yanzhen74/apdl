@@ -459,7 +459,7 @@ fn test_full_stack_integration() {
 
     // 数据字段从偏移4开始（vcid(2) + encap_length(2)）
     let data_offset = 4;
-    let data_field_size = 20;
+    let _data_field_size = 20;
 
     // 检查子包数据是否嵌入到父包的data字段中
     let embedded_data = &parent_frame_data[data_offset..data_offset + child_frame.len()];

@@ -2,10 +2,7 @@
 //!
 //! 验证字段映射连接器的正确性和功能
 
-use apdl_core::{
-    Constraint, CoverDesc, FieldMappingEntry, LengthDesc, LengthUnit, SemanticRule, SyntaxUnit,
-    UnitType,
-};
+use apdl_core::SemanticRule;
 use apdl_poem::dsl::parser::DslParserImpl;
 
 #[test]

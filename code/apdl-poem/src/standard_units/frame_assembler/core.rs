@@ -142,10 +142,49 @@ impl FrameAssembler {
             frame_data.push(bit_buffer);
         }
 
+        // 第一阶段：应用非长度、非CRC规则（如SequenceControl等）
+        self.apply_other_semantic_rules(&mut frame_data)?;
+
         // 第二阶段：应用长度和CRC等需要在完整帧基础上计算的规则
         self.apply_length_and_crc_rules(&mut frame_data)?;
 
         Ok(frame_data)
+    }
+
+    /// 应用其他语义规则（在长度和CRC规则之前）
+    /// 主要包括SequenceControl等状态维护规则
+    pub fn apply_other_semantic_rules(
+        &mut self,
+        frame_data: &mut Vec<u8>,
+    ) -> Result<(), ProtocolError> {
+        // 克隆语义规则以避免借用冲突
+        let rules_to_process: Vec<_> = self.semantic_rules.clone();
+
+        for rule in &rules_to_process {
+            match rule {
+                SemanticRule::SequenceControl {
+                    field_name,
+                    trigger_condition,
+                    algorithm,
+                    description,
+                } => {
+                    // 应用序列控制规则
+                    self.apply_sequence_control_rule(
+                        field_name,
+                        trigger_condition,
+                        algorithm,
+                        description,
+                        frame_data,
+                    )?;
+                }
+                // 其他非长度、非CRC规则可以在这里添加
+                _ => {
+                    // 跳过长度规则和校验和规则，它们在第二阶段处理
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// 解析协议帧
