@@ -1,0 +1,244 @@
+{
+  "name": "ccsds_tc_frame",
+  "description": "CCSDS 遥控传输帧定义 - 符合 CCSDS 232.0-B-3 标准",
+  "version": "1.0.0",
+  "type": "telecommand_frame",
+  "fields": [
+    {
+      "name": "tc_sync_flag",
+      "type": "Uint16",
+      "length": "2byte",
+      "scope": "layer(physical)",
+      "cover": "entire_field",
+      "constraint": "fixed(0x55AA)",
+      "description": "TC同步标志(固定值0x55AA)",
+      "offset": 0
+    },
+    {
+      "name": "tc_tfvn",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=3)",
+      "description": "传输帧版本号(0-3)",
+      "offset": 2
+    },
+    {
+      "name": "tc_bypass",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=1)",
+      "description": "旁路标志(0=正常,1=旁路)",
+      "offset": 3
+    },
+    {
+      "name": "tc_cc",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=1)",
+      "description": "控制命令标志(0=数据,1=控制)",
+      "offset": 4
+    },
+    {
+      "name": "tc_seg",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=3)",
+      "description": "分段标志(0-3)",
+      "offset": 5
+    },
+    {
+      "name": "tc_vcid",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=63)",
+      "description": "虚拟通道标识符(0-63)",
+      "offset": 6
+    },
+    {
+      "name": "tc_fcfl",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=1)",
+      "description": "帧控制字段长度标志",
+      "offset": 7
+    },
+    {
+      "name": "tc_scid",
+      "type": "Uint16",
+      "length": "2byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=1023)",
+      "description": "航天器标识符(10位)",
+      "offset": 8
+    },
+    {
+      "name": "tc_seq",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=255)",
+      "description": "帧序列号(0-255循环)",
+      "offset": 10
+    },
+    {
+      "name": "tc_frame_len",
+      "type": "Uint16",
+      "length": "2byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=1024)",
+      "description": "帧长度(字节数)",
+      "offset": 11
+    },
+    {
+      "name": "tc_data",
+      "type": "RawData",
+      "length": "dynamic",
+      "scope": "layer(application)",
+      "cover": "entire_field",
+      "description": "TC数据域(包含命令数据)",
+      "offset": 13
+    },
+    {
+      "name": "tc_fecf",
+      "type": "Uint16",
+      "length": "2byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "algorithm": "crc16",
+      "description": "帧错误控制字段(CRC-16)",
+      "optional": false
+    }
+  ],
+  "rules": [
+    {
+      "type": "fixed_value_validation",
+      "description": "验证TC同步标志为固定值0x55AA",
+      "field": "tc_sync_flag",
+      "expected_value": "0x55AA",
+      "severity": "error"
+    },
+    {
+      "type": "sequence_control",
+      "description": "TC帧序列号应递增并循环",
+      "field": "tc_seq",
+      "logic": "monotonic_increase",
+      "modulo": 256,
+      "scope": "per_vcid",
+      "group_by": "tc_vcid"
+    },
+    {
+      "type": "dependency",
+      "description": "tc_frame_len字段依赖于tc_data的实际长度",
+      "source_field": "tc_frame_len",
+      "target_field": "tc_data",
+      "logic": "tc_frame_len = total_frame_length"
+    },
+    {
+      "type": "checksum_validation",
+      "description": "对整个TC帧进行CRC-16校验",
+      "field": "tc_fecf",
+      "algorithm": "crc16_ccitt",
+      "polynomial": "0x1021",
+      "initial_value": "0xFFFF",
+      "range": {
+        "start": "tc_sync_flag",
+        "end": "tc_data"
+      }
+    },
+    {
+      "type": "boundary_detection",
+      "description": "根据tc_frame_len确定帧边界",
+      "length_field": "tc_frame_len",
+      "data_field": "tc_data",
+      "calculation": "tc_frame_len - header_size"
+    },
+    {
+      "type": "constraint_validation",
+      "description": "验证虚拟通道ID的有效范围",
+      "field": "tc_vcid",
+      "constraint": "0 <= tc_vcid <= 63",
+      "reserved_values": [63]
+    },
+    {
+      "type": "enum_mapping",
+      "description": "分段标志枚举",
+      "field": "tc_seg",
+      "mappings": [
+        {"value": 0, "name": "continuation", "description": "继续分段"},
+        {"value": 1, "name": "first", "description": "第一个分段"},
+        {"value": 2, "name": "last", "description": "最后一个分段"},
+        {"value": 3, "name": "unsegmented", "description": "未分段"}
+      ]
+    },
+    {
+      "type": "enum_mapping",
+      "description": "旁路标志枚举",
+      "field": "tc_bypass",
+      "mappings": [
+        {"value": 0, "name": "normal", "description": "正常处理"},
+        {"value": 1, "name": "bypass", "description": "旁路COP-1协议"}
+      ]
+    },
+    {
+      "type": "enum_mapping",
+      "description": "控制命令标志枚举",
+      "field": "tc_cc",
+      "mappings": [
+        {"value": 0, "name": "type_d", "description": "AD模式(有确认)"},
+        {"value": 1, "name": "type_bc", "description": "BC模式(盲传)"}
+      ]
+    },
+    {
+      "type": "conditional_field",
+      "description": "根据tc_fcfl决定帧控制字段的长度",
+      "condition_field": "tc_fcfl",
+      "dependent_fields": ["frame_control_field"],
+      "logic": "if tc_fcfl == 1 then parse extended_control_field"
+    },
+    {
+      "type": "security_validation",
+      "description": "TC帧需要进行安全认证",
+      "fields": ["tc_data"],
+      "algorithm": "authentication",
+      "optional": true
+    },
+    {
+      "type": "multiplexing",
+      "description": "多个虚拟通道复用",
+      "field": "tc_vcid",
+      "logic": "demux_by_vcid",
+      "max_channels": 64
+    },
+    {
+      "type": "rate_control",
+      "description": "TC帧发送速率控制",
+      "field": "tc_seq",
+      "max_rate": "configurable",
+      "unit": "frames_per_second"
+    }
+  ],
+  "metadata": {
+    "standard": "CCSDS 232.0-B-3",
+    "category": "telecommand_transfer_frame",
+    "layer": "data_link",
+    "typical_size": "variable (常用: 1024 bytes或更小)",
+    "usage": "航天器遥控指令上行传输",
+    "sync_pattern": "0x55AA",
+    "security": "支持可选的帧安全机制"
+  }
+}

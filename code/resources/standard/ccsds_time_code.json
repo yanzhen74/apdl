@@ -1,0 +1,238 @@
+{
+  "name": "ccsds_time_code",
+  "description": "CCSDS 时间码定义 - 符合 CCSDS 301.0-B-4 标准",
+  "version": "1.0.0",
+  "type": "time_code",
+  "fields": [
+    {
+      "name": "time_sync_flag",
+      "type": "Uint16",
+      "length": "2byte",
+      "scope": "layer(physical)",
+      "cover": "entire_field",
+      "constraint": "fixed(0xAAA5)",
+      "description": "时间码同步标志(固定值0xAAA5)",
+      "offset": 0
+    },
+    {
+      "name": "pfield_extension",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(time)",
+      "cover": "entire_field",
+      "constraint": "range(0..=7)",
+      "description": "P-field扩展标识(时间码格式)",
+      "offset": 2
+    },
+    {
+      "name": "time_code_id",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(time)",
+      "cover": "entire_field",
+      "constraint": "range(0..=255)",
+      "description": "时间码标识符(指定格式类型)",
+      "offset": 3
+    },
+    {
+      "name": "pfield",
+      "type": "Uint32",
+      "length": "4byte",
+      "scope": "layer(time)",
+      "cover": "entire_field",
+      "constraint": "range(0..=4294967295)",
+      "description": "主要时间字段(天数,从纪元起)",
+      "offset": 4
+    },
+    {
+      "name": "sfield",
+      "type": "Uint32",
+      "length": "4byte",
+      "scope": "layer(time)",
+      "cover": "entire_field",
+      "constraint": "range(0..=86400000)",
+      "description": "次要时间字段(毫秒数,0-86400000)",
+      "offset": 8
+    },
+    {
+      "name": "ffield",
+      "type": "Uint16",
+      "length": "2byte",
+      "scope": "layer(time)",
+      "cover": "entire_field",
+      "constraint": "range(0..=65535)",
+      "description": "分数时间字段(微秒/亚秒精度)",
+      "offset": 12
+    },
+    {
+      "name": "ext_time_field",
+      "type": "RawData",
+      "length": "dynamic",
+      "scope": "layer(time)",
+      "cover": "entire_field",
+      "description": "扩展时间字段(可选,用于更高精度)",
+      "offset": 14,
+      "optional": true
+    }
+  ],
+  "rules": [
+    {
+      "type": "fixed_value_validation",
+      "description": "验证时间码同步标志为固定值0xAAA5",
+      "field": "time_sync_flag",
+      "expected_value": "0xAAA5",
+      "severity": "error"
+    },
+    {
+      "type": "constraint_validation",
+      "description": "验证sfield在有效范围内(一天的毫秒数)",
+      "field": "sfield",
+      "constraint": "0 <= sfield <= 86400000",
+      "severity": "error",
+      "note": "86400000 = 24 * 60 * 60 * 1000"
+    },
+    {
+      "type": "range_validation",
+      "description": "验证pfield表示的天数合理性",
+      "field": "pfield",
+      "min_value": 0,
+      "max_value": 65535,
+      "typical_range": {
+        "start": 0,
+        "end": 36525,
+        "description": "约100年的天数范围"
+      }
+    },
+    {
+      "type": "enum_mapping",
+      "description": "时间码格式标识",
+      "field": "time_code_id",
+      "mappings": [
+        {"value": 0, "name": "cds_short", "description": "CDS短格式(Day + ms)"},
+        {"value": 1, "name": "cds_long", "description": "CDS长格式(Day + ms + μs)"},
+        {"value": 2, "name": "cuc_level1", "description": "CUC 1级(粗精度)"},
+        {"value": 3, "name": "cuc_level2", "description": "CUC 2级(细精度)"},
+        {"value": 4, "name": "ccs", "description": "CCSDS日历分段格式"},
+        {"value": 5, "name": "agency_defined", "description": "机构自定义格式"}
+      ]
+    },
+    {
+      "type": "dependency",
+      "description": "扩展时间字段依赖于pfield_extension",
+      "source_field": "pfield_extension",
+      "target_field": "ext_time_field",
+      "logic": "if pfield_extension > 0 then parse ext_time_field"
+    },
+    {
+      "type": "monotonic_validation",
+      "description": "时间码应保持单调递增",
+      "fields": ["pfield", "sfield", "ffield"],
+      "logic": "time_t+1 >= time_t",
+      "tolerance": "allow_small_rollback",
+      "rollback_threshold": "100ms"
+    },
+    {
+      "type": "epoch_validation",
+      "description": "验证时间纪元的合理性",
+      "field": "pfield",
+      "epoch": "1958-01-01T00:00:00Z",
+      "note": "CCSDS标准纪元为1958年1月1日"
+    },
+    {
+      "type": "precision_mapping",
+      "description": "根据格式类型确定时间精度",
+      "field": "time_code_id",
+      "mappings": [
+        {"value": 0, "precision": "1ms", "resolution": "millisecond"},
+        {"value": 1, "precision": "1μs", "resolution": "microsecond"},
+        {"value": 2, "precision": "1s", "resolution": "second"},
+        {"value": 3, "precision": "1μs", "resolution": "microsecond"}
+      ]
+    },
+    {
+      "type": "time_conversion",
+      "description": "时间字段到标准时间戳的转换",
+      "source_fields": ["pfield", "sfield", "ffield"],
+      "target_format": "ISO8601",
+      "calculation": "epoch + (pfield * 86400) + (sfield / 1000) + (ffield / 1000000)"
+    },
+    {
+      "type": "leap_second_handling",
+      "description": "处理闰秒情况",
+      "field": "sfield",
+      "special_value": 86400000,
+      "logic": "handle_leap_second",
+      "note": "当sfield=86400000时表示闰秒"
+    },
+    {
+      "type": "time_quality_indicator",
+      "description": "时间质量指示器(可选)",
+      "fields": ["pfield", "sfield"],
+      "quality_levels": [
+        {"level": 0, "description": "时间精确同步"},
+        {"level": 1, "description": "时间近似同步"},
+        {"level": 2, "description": "时间自由运行"}
+      ]
+    },
+    {
+      "type": "correlation_validation",
+      "description": "时间码与系统时间的关联验证",
+      "source_field": "combined_time",
+      "reference": "system_clock",
+      "max_drift": "1000ms",
+      "action_on_exceed": "warning"
+    }
+  ],
+  "time_formats": [
+    {
+      "name": "CDS (CCSDS Day Segmented)",
+      "format_id": 0,
+      "structure": {
+        "day_field": "pfield (16 or 24 bits)",
+        "ms_field": "sfield (32 bits)",
+        "us_field": "ffield (optional, 16 bits)"
+      },
+      "precision": "microsecond",
+      "epoch": "1958-01-01T00:00:00Z"
+    },
+    {
+      "name": "CUC (CCSDS Unsegmented Time Code)",
+      "format_id": 2,
+      "structure": {
+        "coarse_time": "pfield (32 bits)",
+        "fine_time": "sfield (24 bits optional)"
+      },
+      "precision": "configurable",
+      "epoch": "agency_defined"
+    },
+    {
+      "name": "CCS (CCSDS Calendar Segmented)",
+      "format_id": 4,
+      "structure": {
+        "year": "16 bits",
+        "month": "8 bits",
+        "day": "8 bits",
+        "hour": "8 bits",
+        "minute": "8 bits",
+        "second": "8 bits"
+      },
+      "precision": "second",
+      "human_readable": true
+    }
+  ],
+  "metadata": {
+    "standard": "CCSDS 301.0-B-4",
+    "category": "time_code",
+    "layer": "time",
+    "typical_size": "6-16 bytes (依赖格式)",
+    "usage": "航天器时间标记,数据包时间戳",
+    "sync_pattern": "0xAAA5",
+    "epoch": "1958-01-01T00:00:00Z (TAI)",
+    "features": [
+      "多种时间格式支持",
+      "亚秒级精度",
+      "闰秒处理",
+      "可扩展时间字段"
+    ]
+  }
+}

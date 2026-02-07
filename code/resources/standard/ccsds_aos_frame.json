@@ -1,0 +1,296 @@
+{
+  "name": "ccsds_aos_frame",
+  "description": "CCSDS 高级在轨系统帧定义 - 符合 CCSDS 732.0-B-4 标准",
+  "version": "1.0.0",
+  "type": "aos_frame",
+  "fields": [
+    {
+      "name": "aos_sync_flag",
+      "type": "Uint32",
+      "length": "4byte",
+      "scope": "layer(physical)",
+      "cover": "entire_field",
+      "constraint": "fixed(0x1ACFFC1D)",
+      "description": "AOS同步标志(固定值0x1ACFFC1D)",
+      "offset": 0
+    },
+    {
+      "name": "aos_tfvn",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=3)",
+      "description": "传输帧版本号(通常为2)",
+      "offset": 4
+    },
+    {
+      "name": "aos_scid",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=255)",
+      "description": "航天器标识符(8位)",
+      "offset": 5
+    },
+    {
+      "name": "aos_vcid",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=63)",
+      "description": "虚拟通道标识符(0-63)",
+      "offset": 6
+    },
+    {
+      "name": "mcfc",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=255)",
+      "description": "主通道帧计数(0-255循环)",
+      "offset": 7
+    },
+    {
+      "name": "vcfc_high",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=255)",
+      "description": "虚拟通道帧计数高8位",
+      "offset": 8
+    },
+    {
+      "name": "vcfc_low",
+      "type": "Uint16",
+      "length": "2byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=65535)",
+      "description": "虚拟通道帧计数低16位(24位总计数)",
+      "offset": 9
+    },
+    {
+      "name": "replay_flag",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=1)",
+      "description": "重放标志(0=实时,1=回放)",
+      "offset": 11
+    },
+    {
+      "name": "vc_frame_usage",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=7)",
+      "description": "虚拟通道帧使用计数",
+      "offset": 12
+    },
+    {
+      "name": "acf_flag",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=1)",
+      "description": "接入信道字段标志(0=不存在,1=存在)",
+      "offset": 13
+    },
+    {
+      "name": "first_hdr_ptr",
+      "type": "Uint16",
+      "length": "2byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=2047)",
+      "description": "第一个头指针(指向第一个包的起始位置)",
+      "offset": 14
+    },
+    {
+      "name": "taflen",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=63)",
+      "description": "跟踪附属字段长度",
+      "offset": 16
+    },
+    {
+      "name": "synflg",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=1)",
+      "description": "同步标志(0=失步,1=同步)",
+      "offset": 17
+    },
+    {
+      "name": "pktord",
+      "type": "Uint8",
+      "length": "1byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=1)",
+      "description": "数据包排序(0=无序,1=有序)",
+      "offset": 18
+    },
+    {
+      "name": "aos_data_field",
+      "type": "RawData",
+      "length": "dynamic",
+      "scope": "layer(application)",
+      "cover": "entire_field",
+      "description": "AOS数据域(支持多种复用模式)",
+      "offset": 19
+    },
+    {
+      "name": "aos_fecf",
+      "type": "Uint16",
+      "length": "2byte",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "algorithm": "crc16",
+      "description": "帧错误控制字段(CRC-16)",
+      "optional": false
+    }
+  ],
+  "rules": [
+    {
+      "type": "fixed_value_validation",
+      "description": "验证AOS同步标志为固定值0x1ACFFC1D",
+      "field": "aos_sync_flag",
+      "expected_value": "0x1ACFFC1D",
+      "severity": "error"
+    },
+    {
+      "type": "sequence_control",
+      "description": "主通道帧计数器应递增并循环",
+      "field": "mcfc",
+      "logic": "monotonic_increase",
+      "modulo": 256,
+      "scope": "master_channel"
+    },
+    {
+      "type": "sequence_control",
+      "description": "虚拟通道帧计数器应递增并循环(24位)",
+      "field": "vcfc_combined",
+      "logic": "monotonic_increase",
+      "modulo": 16777216,
+      "scope": "per_vcid",
+      "group_by": "aos_vcid",
+      "composite_fields": ["vcfc_high", "vcfc_low"]
+    },
+    {
+      "type": "checksum_validation",
+      "description": "对整个AOS帧进行CRC-16校验",
+      "field": "aos_fecf",
+      "algorithm": "crc16_ccitt",
+      "polynomial": "0x1021",
+      "initial_value": "0xFFFF",
+      "range": {
+        "start": "aos_sync_flag",
+        "end": "aos_data_field"
+      }
+    },
+    {
+      "type": "pointer_resolution",
+      "description": "使用first_hdr_ptr定位数据区中的第一个包",
+      "field": "first_hdr_ptr",
+      "target_field": "aos_data_field",
+      "logic": "offset_from_start",
+      "special_values": {
+        "2047": "no_packet_start",
+        "2046": "idle_data"
+      }
+    },
+    {
+      "type": "boundary_detection",
+      "description": "根据first_hdr_ptr识别包边界",
+      "pointer_field": "first_hdr_ptr",
+      "data_field": "aos_data_field",
+      "method": "header_pointer"
+    },
+    {
+      "type": "constraint_validation",
+      "description": "验证虚拟通道ID的有效范围",
+      "field": "aos_vcid",
+      "constraint": "0 <= aos_vcid <= 63",
+      "reserved_values": [63]
+    },
+    {
+      "type": "enum_mapping",
+      "description": "重放标志枚举",
+      "field": "replay_flag",
+      "mappings": [
+        {"value": 0, "name": "real_time", "description": "实时数据"},
+        {"value": 1, "name": "playback", "description": "回放数据"}
+      ]
+    },
+    {
+      "type": "enum_mapping",
+      "description": "虚拟通道帧使用类型",
+      "field": "vc_frame_usage",
+      "mappings": [
+        {"value": 0, "name": "packet_service", "description": "包服务"},
+        {"value": 1, "name": "bitstream_service", "description": "比特流服务"},
+        {"value": 2, "name": "vca_service", "description": "VCA服务"},
+        {"value": 7, "name": "idle", "description": "空闲帧"}
+      ]
+    },
+    {
+      "type": "conditional_field",
+      "description": "根据acf_flag决定是否存在接入信道字段",
+      "condition_field": "acf_flag",
+      "dependent_fields": ["access_channel_field"],
+      "logic": "if acf_flag == 1 then parse access_channel_field"
+    },
+    {
+      "type": "multiplexing",
+      "description": "多个虚拟通道复用到主通道",
+      "field": "aos_vcid",
+      "logic": "demux_by_vcid",
+      "max_channels": 64
+    },
+    {
+      "type": "qos_control",
+      "description": "基于虚拟通道的服务质量控制",
+      "field": "aos_vcid",
+      "logic": "priority_scheduling",
+      "parameters": {
+        "priority_levels": 8,
+        "scheduling_algorithm": "weighted_fair_queuing"
+      }
+    },
+    {
+      "type": "data_recovery",
+      "description": "支持包级数据恢复",
+      "pointer_field": "first_hdr_ptr",
+      "data_field": "aos_data_field",
+      "method": "partial_packet_recovery"
+    }
+  ],
+  "metadata": {
+    "standard": "CCSDS 732.0-B-4",
+    "category": "advanced_orbiting_systems_frame",
+    "layer": "data_link",
+    "typical_size": "variable (常用: 1115 或 2048 bytes)",
+    "usage": "高速航天器数据传输,支持多种复用模式",
+    "sync_pattern": "0x1ACFFC1D",
+    "features": [
+      "24位虚拟通道帧计数",
+      "包边界指针",
+      "多种复用服务",
+      "实时/回放标识"
+    ]
+  }
+}
