@@ -28,15 +28,14 @@ fn test_ccsds_standard_two_layer_integration() {
 
     // 1. 读取标准 CCSDS Space Packet 定义
     let child_package_json = fs::read_to_string(
-        "d:/users/oliver/study/ai/rust/apdl/code/resources/standard/ccsds_packet_structure.json",
+        "D:/user/yqd/project/apdl/code/resources/standard/ccsds_packet_structure.json",
     )
     .expect("Failed to read ccsds_packet_structure.json");
 
     // 2. 读取标准 CCSDS TM Frame 定义
-    let parent_package_json = fs::read_to_string(
-        "d:/users/oliver/study/ai/rust/apdl/code/resources/standard/ccsds_tm_frame.json",
-    )
-    .expect("Failed to read ccsds_tm_frame.json");
+    let parent_package_json =
+        fs::read_to_string("d:/user/yqd/project/apdl/code/resources/standard/ccsds_tm_frame.json")
+            .expect("Failed to read ccsds_tm_frame.json");
 
     // 3. 将标准 JSON 格式转换为内部 PackageDefinition 格式
     let child_package_def = convert_standard_json_to_package(&child_package_json, "space_packet");
@@ -60,16 +59,26 @@ fn test_ccsds_standard_two_layer_integration() {
                 {
                     "source_field": "apid",
                     "target_field": "vcid",
-                    "mapping_logic": "modulo(64)",
+                    "mapping_logic": "mask_table",
                     "default_value": "0",
-                    "enum_mappings": null
+                    "enum_mappings": null,
+                    "mask_mapping_table": [
+                        {"mask": ["0xFF", "0xFF"], "src_masked": ["0x02", "0x45"], "dst": ["0x05"]},
+                        {"mask": ["0xFF", "0x00"], "src_masked": ["0x02", "0x00"], "dst": ["0x02"]},
+                        {"mask": ["0x00", "0xFF"], "src_masked": ["0x00", "0x45"], "dst": ["0x45"]}
+                    ]
                 },
                 {
                     "source_field": "pkt_seq_cnt",
                     "target_field": "mcfc",
-                    "mapping_logic": "modulo(256)",
+                    "mapping_logic": "mask_table",
                     "default_value": "0",
-                    "enum_mappings": null
+                    "enum_mappings": null,
+                    "mask_mapping_table": [
+                        {"mask": ["0xFF", "0xFF"], "src_masked": ["0x12", "0x34"], "dst": ["0x34"]},
+                        {"mask": ["0xFF", "0x00"], "src_masked": ["0x12", "0x00"], "dst": ["0x12"]},
+                        {"mask": ["0x00", "0xFF"], "src_masked": ["0x00", "0x34"], "dst": ["0x34"]}
+                    ]
                 }
             ],
             "header_pointers": null,
@@ -98,7 +107,10 @@ fn test_ccsds_standard_two_layer_integration() {
     for unit in &child_package_def.layers[0].units {
         child_assembler.add_field(unit.clone());
     }
-    println!("✓ 子包组装器创建成功，包含 {} 个字段", child_assembler.fields.len());
+    println!(
+        "✓ 子包组装器创建成功，包含 {} 个字段",
+        child_assembler.fields.len()
+    );
 
     // 6. 设置子包字段值（构造一个标准的 CCSDS 遥测包）
     println!("\n--- 设置子包字段值 ---");
@@ -276,40 +288,34 @@ fn test_ccsds_standard_two_layer_integration() {
     println!("\n=== 验证测试结果 ===\n");
 
     // 验证1: 父包长度合理性
-    assert!(
-        parent_frame.len() >= 10,
-        "父包长度应至少包含头部字段"
-    );
+    assert!(parent_frame.len() >= 10, "父包长度应至少包含头部字段");
     println!("✓ 验证1: 父包长度合理 ({} 字节)", parent_frame.len());
 
     // 验证2: TM同步标志
     let sync_flag = ((parent_frame[0] as u16) << 8) | (parent_frame[1] as u16);
     assert_eq!(
         sync_flag, 0xEB90,
-        "TM同步标志应为0xEB90，实际: 0x{:04X}",
-        sync_flag
+        "TM同步标志应为0xEB90，实际: 0x{sync_flag:04X}"
     );
-    println!("✓ 验证2: TM同步标志正确 (0x{:04X})", sync_flag);
+    println!("✓ 验证2: TM同步标志正确 (0x{sync_flag:04X})");
 
     // 验证3: VCID字段映射（apid=0x0245 -> vcid=0x0245 % 64 = 5）
     let vcid = parent_frame[4];
     let expected_vcid = 0x45 % 64; // apid的低字节 mod 64
     assert_eq!(
         vcid, expected_vcid,
-        "VCID应映射自APID，期望: {}，实际: {}",
-        expected_vcid, vcid
+        "VCID应映射自APID，期望: {expected_vcid}，实际: {vcid}"
     );
-    println!("✓ 验证3: VCID字段正确映射 ({})", vcid);
+    println!("✓ 验证3: VCID字段正确映射 ({vcid})");
 
     // 验证4: MCFC字段映射（pkt_seq_cnt=0x1234 -> mcfc=0x34）
     let mcfc = parent_frame[6];
     let expected_mcfc = 0x34; // pkt_seq_cnt的低字节
     assert_eq!(
         mcfc, expected_mcfc,
-        "MCFC应映射自pkt_seq_cnt，期望: 0x{:02X}，实际: 0x{:02X}",
-        expected_mcfc, mcfc
+        "MCFC应映射自pkt_seq_cnt，期望: 0x{expected_mcfc:02X}，实际: 0x{mcfc:02X}",
     );
-    println!("✓ 验证4: MCFC字段正确映射 (0x{:02X})", mcfc);
+    println!("✓ 验证4: MCFC字段正确映射 (0x{mcfc:02X})");
 
     // 验证5: 父包数据域包含完整的子包
     let data_offset = 10; // 假设头部占10字节
@@ -345,20 +351,20 @@ fn test_ccsds_standard_two_layer_integration() {
     println!("  - 数据长度: {} 字节", payload_data.len());
 
     println!("\n父包字段验证:");
-    println!("  - 同步标志: 0x{:04X}", sync_flag);
+    println!("  - 同步标志: 0x{sync_flag:04X}");
     println!("  - 版本号: {}", parent_frame[2]);
     println!("  - 航天器ID高位: 0x{:02X}", parent_frame[3]);
-    println!("  - VCID: {} (从APID映射)", vcid);
-    println!("  - MCFC: 0x{:02X} (从序列计数映射)", mcfc);
+    println!("  - VCID: {vcid} (从APID映射)");
+    println!("  - MCFC: 0x{mcfc:02X} (从序列计数映射)");
     println!("  - VCFC: 0x{:02X}", parent_frame[7]);
 
     println!("\n封装统计:");
     println!("  - 子包大小: {} 字节", child_frame.len());
     println!("  - 父包大小: {} 字节", parent_frame.len());
     let overhead = parent_frame.len() as i32 - child_frame.len() as i32;
-    println!("  - 封装开销: {} 字节", overhead);
+    println!("  - 封装开销: {overhead} 字节");
     let efficiency = (child_frame.len() as f64 / parent_frame.len() as f64) * 100.0;
-    println!("  - 封装效率: {:.2}%", efficiency);
+    println!("  - 封装效率: {efficiency:.2}%");
 
     // 14. 总结
     println!("\n=== 测试总结 ===");
@@ -382,9 +388,7 @@ fn convert_standard_json_to_package(
     let json: Value = serde_json::from_str(standard_json).expect("Failed to parse JSON");
 
     // 提取字段定义
-    let fields = json["fields"]
-        .as_array()
-        .expect("Missing fields array");
+    let fields = json["fields"].as_array().expect("Missing fields array");
 
     let mut units = Vec::new();
 
@@ -451,15 +455,9 @@ fn convert_standard_json_to_package(
     // 创建包定义
     PackageDefinition {
         name: package_name.to_string(),
-        display_name: json["name"]
-            .as_str()
-            .unwrap_or(package_name)
-            .to_string(),
+        display_name: json["name"].as_str().unwrap_or(package_name).to_string(),
         package_type: json["type"].as_str().unwrap_or("unknown").to_string(),
-        description: json["description"]
-            .as_str()
-            .unwrap_or("")
-            .to_string(),
+        description: json["description"].as_str().unwrap_or("").to_string(),
         layers: vec![LayerDefinition {
             name: "default_layer".to_string(),
             units,

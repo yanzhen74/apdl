@@ -136,14 +136,80 @@ pub struct EnumMappingEntry {
     pub target_enum: String, // 目标枚举值
 }
 
+/// 掩码映射表条目
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MaskMappingEntry {
+    #[serde(deserialize_with = "deserialize_hex_array")]
+    pub mask: Vec<u8>, // 掩码，如 [0xFF, 0xF0] 或 ["0xFF", "0xF0"]
+    #[serde(deserialize_with = "deserialize_hex_array")]
+    pub src_masked: Vec<u8>, // 源值应用掩码后的期望值，如 [0x04, 0x80]
+    #[serde(deserialize_with = "deserialize_hex_array")]
+    pub dst: Vec<u8>, // 目标映射值，如 [0x35]
+}
+
+/// 自定义反序列化：支持数字数组或十六进制字符串数组
+fn deserialize_hex_array<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Visitor};
+    use std::fmt;
+
+    struct HexArrayVisitor;
+
+    impl<'de> Visitor<'de> for HexArrayVisitor {
+        type Value = Vec<u8>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("an array of numbers or hex strings")
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: serde::de::SeqAccess<'de>,
+        {
+            let mut vec = Vec::new();
+            while let Some(value) = seq.next_element::<serde_json::Value>()? {
+                match value {
+                    serde_json::Value::Number(n) => {
+                        if let Some(num) = n.as_u64() {
+                            vec.push(num as u8);
+                        } else {
+                            return Err(de::Error::custom("number out of range"));
+                        }
+                    }
+                    serde_json::Value::String(s) => {
+                        let s = s.trim();
+                        let byte_val = if s.starts_with("0x") || s.starts_with("0X") {
+                            u8::from_str_radix(&s[2..], 16).map_err(|_| {
+                                de::Error::custom(format!("invalid hex string: {s}"))
+                            })?
+                        } else {
+                            s.parse::<u8>().map_err(|_| {
+                                de::Error::custom(format!("invalid number string: {s}"))
+                            })?
+                        };
+                        vec.push(byte_val);
+                    }
+                    _ => return Err(de::Error::custom("expected number or string")),
+                }
+            }
+            Ok(vec)
+        }
+    }
+
+    deserializer.deserialize_seq(HexArrayVisitor)
+}
+
 /// 字段映射条目
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FieldMappingEntry {
     pub source_field: String,
     pub target_field: String,
-    pub mapping_logic: String, // 映射逻辑，如 "hash(x) % 64"
+    pub mapping_logic: String, // 映射逻辑，如 "hash(x) % 64" 或 "mask_table"
     pub default_value: String, // 默认值
     pub enum_mappings: Option<Vec<EnumMappingEntry>>, // 可选的枚举映射列表
+    pub mask_mapping_table: Option<Vec<MaskMappingEntry>>, // 可选的掩码映射表
 }
 
 /// DSL解析错误

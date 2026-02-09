@@ -8,6 +8,7 @@ pub(super) fn apply_mapping_logic(
     source_value: &[u8],
     mapping_logic: &str,
     default_value: &str,
+    mask_table: Option<&[apdl_core::MaskMappingEntry]>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     match mapping_logic {
         "identity" => Ok(source_value.to_vec()),
@@ -23,11 +24,67 @@ pub(super) fn apply_mapping_logic(
             let result = hash_value % 2048;
             Ok(vec![((result >> 8) & 0xFF) as u8, (result & 0xFF) as u8])
         }
+        "mask_table" => {
+            // 使用掩码映射表
+            if let Some(table) = mask_table {
+                apply_mask_mapping_table(source_value, table, default_value)
+            } else {
+                // 没有提供掩码映射表，使用默认值
+                parse_default_value(default_value)
+            }
+        }
         _ => {
             // 如果映射逻辑无法识别，使用默认值
             parse_default_value(default_value)
         }
     }
+}
+
+/// 应用掩码映射表查找
+///
+/// 根据掩码映射表，将源值应用掩码后查找对应的目标值
+///
+/// # 参数
+/// - `source_value`: 源字段值，如 [0x04, 0x81]
+/// - `mask_table`: 掩码映射表
+/// - `default_value`: 未匹配时的默认值
+///
+/// # 返回
+/// 匹配的目标值或默认值
+pub(super) fn apply_mask_mapping_table(
+    source_value: &[u8],
+    mask_table: &[apdl_core::MaskMappingEntry],
+    default_value: &str,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    // 遍历掩码映射表
+    for entry in mask_table {
+        // 检查长度是否匹配
+        if entry.mask.len() != source_value.len() {
+            continue;
+        }
+
+        // 应用掩码
+        let masked_value: Vec<u8> = source_value
+            .iter()
+            .zip(entry.mask.iter())
+            .map(|(src, mask)| src & mask)
+            .collect();
+
+        // 检查是否匹配期望的掩码值
+        if masked_value == entry.src_masked {
+            println!(
+                "Mask mapping matched: source={:02X?} & mask={:02X?} = {:02X?} -> dst={:02X?}",
+                source_value, entry.mask, masked_value, entry.dst
+            );
+            return Ok(entry.dst.clone());
+        }
+    }
+
+    // 未匹配，使用默认值
+    println!(
+        "Mask mapping not matched for source={source_value:02X?}, using default={default_value}"
+    );
+    parse_default_value(default_value)
 }
 
 /// 简单的哈希函数
@@ -73,11 +130,12 @@ pub(super) fn apply_field_mapping_rules(
         }
         // 获取源字段值
         if let Ok(source_value) = source_assembler.get_field_value(&mapping.source_field) {
-            // 应用映射逻辑
+            // 统一应用映射逻辑
             let mapped_value = apply_mapping_logic(
                 &source_value,
                 &mapping.mapping_logic,
                 &mapping.default_value,
+                mapping.mask_mapping_table.as_deref(),
             )?;
 
             // 设置目标字段值

@@ -129,6 +129,7 @@ impl ConnectorEngine {
                 packet_builder_direct::build_direct_packet(
                     &mut self.child_packet_queues,
                     selected_dispatch_flag,
+                    placement_config,
                 )
                 .map(|packet| (packet, selected_dispatch_flag.clone()))
             }

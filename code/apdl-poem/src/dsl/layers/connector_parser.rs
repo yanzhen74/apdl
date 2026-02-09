@@ -380,12 +380,21 @@ impl ConnectorParser {
                 None
             };
 
+            // 解析掩码映射表（如果存在）
+            let mask_mapping_table =
+                if let Some(mask_table_str) = obj_props.get("mask_mapping_table") {
+                    Some(Self::parse_mask_mapping_table(mask_table_str)?)
+                } else {
+                    None
+                };
+
             mappings.push(FieldMappingEntry {
                 source_field,
                 target_field,
                 mapping_logic,
                 default_value,
                 enum_mappings,
+                mask_mapping_table,
             });
         }
 
@@ -561,6 +570,78 @@ impl ConnectorParser {
         }
 
         Ok(mappings)
+    }
+
+    /// 解析掩码映射表
+    ///
+    /// 解析格式：[{mask: [0xFF, 0xF0], src_masked: [0x04, 0x80], dst: [0x35]}, ...]
+    fn parse_mask_mapping_table(
+        table_text: &str,
+    ) -> Result<Vec<apdl_core::MaskMappingEntry>, String> {
+        let content = Self::extract_braced_content(table_text)?;
+        let mut table_entries = Vec::new();
+
+        // 解析数组内容
+        let items = Self::parse_array_items(content)?;
+
+        for item in items {
+            let obj_props = Self::parse_object(&item)?;
+
+            let mask = Self::parse_byte_array(
+                obj_props
+                    .get("mask")
+                    .ok_or("Missing 'mask' in mask mapping entry")?,
+            )?;
+            let src_masked = Self::parse_byte_array(
+                obj_props
+                    .get("src_masked")
+                    .ok_or("Missing 'src_masked' in mask mapping entry")?,
+            )?;
+            let dst = Self::parse_byte_array(
+                obj_props
+                    .get("dst")
+                    .ok_or("Missing 'dst' in mask mapping entry")?,
+            )?;
+
+            table_entries.push(apdl_core::MaskMappingEntry {
+                mask,
+                src_masked,
+                dst,
+            });
+        }
+
+        Ok(table_entries)
+    }
+
+    /// 解析字节数组，如 "[0xFF, 0xF0]" 或 "[255, 240]"
+    fn parse_byte_array(array_str: &str) -> Result<Vec<u8>, String> {
+        let clean_str = array_str.trim();
+        let content = if clean_str.starts_with('[') && clean_str.ends_with(']') {
+            &clean_str[1..clean_str.len() - 1]
+        } else {
+            clean_str
+        };
+
+        let mut bytes = Vec::new();
+        for part in content.split(',') {
+            let part = part.trim();
+            if part.is_empty() {
+                continue;
+            }
+
+            // 支持十六进制和十进制
+            let byte_val = if part.starts_with("0x") || part.starts_with("0X") {
+                u8::from_str_radix(&part[2..], 16)
+                    .map_err(|_| format!("Invalid hex byte value: {part}"))?
+            } else {
+                part.parse::<u8>()
+                    .map_err(|_| format!("Invalid decimal byte value: {part}"))?
+            };
+
+            bytes.push(byte_val);
+        }
+
+        Ok(bytes)
     }
 
     /// 解析头部指针配置

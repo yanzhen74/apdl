@@ -98,6 +98,7 @@ impl FieldMappingParser {
                 let mut mapping_logic = String::new();
                 let mut default_value = String::new();
                 let mut enum_mappings_str = String::new();
+                let mut mask_mapping_table_str = String::new();
 
                 // 解析映射对象中的字段，需要考虑嵌套结构
                 let mut pairs = Vec::new();
@@ -164,6 +165,7 @@ impl FieldMappingParser {
                             "mapping_logic" => mapping_logic = value.to_string(),
                             "default_value" => default_value = value.to_string(),
                             "enum_mappings" => enum_mappings_str = value.to_string(),
+                            "mask_mapping_table" => mask_mapping_table_str = value.to_string(),
                             _ => {}
                         }
                     }
@@ -177,12 +179,20 @@ impl FieldMappingParser {
                         None
                     };
 
+                    // 解析掩码映射表
+                    let mask_mapping_table = if !mask_mapping_table_str.is_empty() {
+                        Some(Self::parse_mask_mapping_table(&mask_mapping_table_str)?)
+                    } else {
+                        None
+                    };
+
                     mappings.push(apdl_core::FieldMappingEntry {
                         source_field,
                         target_field,
                         mapping_logic,
                         default_value,
                         enum_mappings,
+                        mask_mapping_table,
                     });
                 }
             }
@@ -297,6 +307,125 @@ impl FieldMappingParser {
         }
 
         Ok(enum_mappings)
+    }
+
+    /// 解析掩码映射表
+    ///
+    /// 解析格式：[{mask: [0xFF, 0xF0], src_masked: [0x04, 0x80], dst: [0x35]}, ...]
+    pub fn parse_mask_mapping_table(
+        table_str: &str,
+    ) -> Result<Vec<apdl_core::MaskMappingEntry>, String> {
+        let mut table_entries = Vec::new();
+
+        // 首先去掉方括号
+        let clean_str = table_str.trim();
+        let content = if clean_str.starts_with('[') && clean_str.ends_with(']') {
+            &clean_str[1..clean_str.len() - 1]
+        } else {
+            clean_str
+        };
+
+        // 分割每个映射表条目对象
+        let mapping_objects = Self::split_mapping_objects(content);
+
+        for obj_str in mapping_objects {
+            let obj_str = obj_str.trim();
+            if obj_str.starts_with('{') && obj_str.ends_with('}') {
+                let content = &obj_str[1..obj_str.len() - 1]; // 去掉大括号
+
+                let mut mask_str = String::new();
+                let mut src_masked_str = String::new();
+                let mut dst_str = String::new();
+
+                // 解析每个字段，需要处理嵌套的数组结构
+                let mut pairs = Vec::new();
+                let mut current_pair = String::new();
+                let mut bracket_depth = 0;
+                let mut in_quotes = false;
+
+                for c in content.chars() {
+                    match c {
+                        '"' | '\'' => in_quotes = !in_quotes,
+                        '[' if !in_quotes => bracket_depth += 1,
+                        ']' if !in_quotes => bracket_depth -= 1,
+                        ',' if !in_quotes && bracket_depth == 0 => {
+                            pairs.push(current_pair.clone());
+                            current_pair.clear();
+                            continue;
+                        }
+                        _ => {}
+                    }
+                    current_pair.push(c);
+                }
+
+                if !current_pair.is_empty() {
+                    pairs.push(current_pair);
+                }
+
+                // 解析键值对
+                for pair in pairs {
+                    let pair = pair.trim();
+                    let kv: Vec<&str> = pair.splitn(2, ':').map(|s| s.trim()).collect();
+                    if kv.len() == 2 {
+                        let key = kv[0].trim().trim_matches(|c| c == '"');
+                        let value = kv[1].trim();
+
+                        match key {
+                            "mask" => mask_str = value.to_string(),
+                            "src_masked" => src_masked_str = value.to_string(),
+                            "dst" => dst_str = value.to_string(),
+                            _ => {}
+                        }
+                    }
+                }
+
+                // 解析字节数组
+                if !mask_str.is_empty() && !src_masked_str.is_empty() && !dst_str.is_empty() {
+                    let mask = Self::parse_byte_array(&mask_str)?;
+                    let src_masked = Self::parse_byte_array(&src_masked_str)?;
+                    let dst = Self::parse_byte_array(&dst_str)?;
+
+                    table_entries.push(apdl_core::MaskMappingEntry {
+                        mask,
+                        src_masked,
+                        dst,
+                    });
+                }
+            }
+        }
+
+        Ok(table_entries)
+    }
+
+    /// 解析字节数组，如 "[0xFF, 0xF0]" 或 "[255, 240]"
+    fn parse_byte_array(array_str: &str) -> Result<Vec<u8>, String> {
+        let clean_str = array_str.trim();
+        let content = if clean_str.starts_with('[') && clean_str.ends_with(']') {
+            &clean_str[1..clean_str.len() - 1]
+        } else {
+            clean_str
+        };
+
+        let mut bytes = Vec::new();
+        for part in content.split(',') {
+            let part = part.trim();
+            if part.is_empty() {
+                continue;
+            }
+
+            // 支持十六进制和十进制
+            let byte_val = if part.starts_with("0x") || part.starts_with("0X") {
+                u8::from_str_radix(&part[2..], 16)
+                    .map_err(|_| format!("Invalid hex byte value: {part}"))?
+            } else {
+                part.parse::<u8>()
+                    .map_err(|_| format!("Invalid decimal byte value: {part}"))?
+            };
+
+            bytes.push(byte_val);
+        }
+
+        Ok(bytes)
     }
 }
 

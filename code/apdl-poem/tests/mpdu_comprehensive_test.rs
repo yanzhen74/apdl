@@ -94,6 +94,7 @@ fn test_mpdu_comprehensive_scenario() {
             mapping_logic: "identity".to_string(),
             default_value: "0".to_string(),
             enum_mappings: None,
+            mask_mapping_table: None,
         },
         apdl_core::FieldMappingEntry {
             source_field: "length".to_string(),
@@ -101,6 +102,7 @@ fn test_mpdu_comprehensive_scenario() {
             mapping_logic: "identity".to_string(),
             default_value: "0".to_string(),
             enum_mappings: None,
+            mask_mapping_table: None,
         },
     ];
 

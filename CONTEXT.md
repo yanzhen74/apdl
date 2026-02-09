@@ -65,6 +65,19 @@ APDL (APDS Protocol Definition Language) 是一个面向航天领域的协议定
 
 #### 4. 连接器与MPDU系统
 - **连接器引擎**: `connector_engine` 模块，负责字段映射和数据放置
+- **字段映射逻辑**: 支持多种映射策略
+  - `identity`: 恒等映射（直接传递）
+  - `hash_mod_64`/`hash_mod_2048`: 哈希取模映射
+  - `mask_table`: 基于掩码表的字段映射 ✨ **新增**
+  - 枚举映射：支持通配符的枚举值映射
+- **掩码映射表**: 支持通过掩码进行字段值匹配和映射
+  - 数据结构：`MaskMappingEntry` (mask, src_masked, dst)
+  - JSON格式：支持十六进制字符串数组 `["0xFF", "0xF0"]`
+  - DSL解析：支持 `mask_mapping_table` 字段定义
+- **数据放置策略**: 
+  - Direct: 直接放置，使用配置的 `target_field`
+  - PointerBased: 基于指针的MPDU放置
+  - StreamBased: 流式放置
 - **MPDU管理器**: `mpdu_manager` 模块，实现CCSDS标准的多路协议数据单元
 - **多路缓存队列**: 支持子包和父包模板的分类缓存管理
 - **跨包分割处理**: 支持子包跨MPDU包分割和重组
@@ -76,6 +89,11 @@ APDL (APDS Protocol Definition Language) 是一个面向航天领域的协议定
 - **23 个规则处理器**: 每个语义规则对应一个处理器
 - **TODO 标记系统**: 在所有规则处理器中添加了 TODO 注释
 - **DSL 前缀支持**: 支持 `start:`, `field:`, `first:` 等前缀
+
+#### 5. JSON反序列化增强
+- **十六进制字符串支持**: `MaskMappingEntry` 支持字符串格式的十六进制数组
+- **自定义反序列化器**: `deserialize_hex_array` 函数
+- **多格式兼容**: 支持数字数组、十六进制字符串、十进制字符串
 
 ## 当前计划文档
 
@@ -89,6 +107,7 @@ APDL (APDS Protocol Definition Language) 是一个面向航天领域的协议定
 
 ### 已实现功能
 - **扩展数据结构**: 在 `apdl_core` 中添加了 `PackageDefinition`、`ConnectorDefinition`、`ProtocolStackDefinition` 等核心数据结构
+- **掩码映射表**: 添加 `MaskMappingEntry` 数据结构，支持基于掩码的字段映射
 - **包解析器**: 实现了 `package_parser`，支持包定义的解析
 - **连接器解析器**: 实现了 `connector_parser`，支持连接器定义的解析
 - **协议栈解析器**: 实现了 `protocol_stack_parser`，支持协议栈定义的解析
@@ -97,7 +116,8 @@ APDL (APDS Protocol Definition Language) 是一个面向航天领域的协议定
 - **连接器系统**: 实现了DSL解析器与运行时引擎的协作架构
 - **集成测试**: 创建了验证DSL解析器和运行时引擎协同工作的测试用例
 - **数据放置策略**: 实现了多种数据放置策略（直接放入、指针基、数据流等）
-- **字段映射功能**: 实现了完整的字段映射机制
+- **字段映射功能**: 实现了完整的字段映射机制，包括掩码映射表支持
+- **CCSDS标准测试**: 完成 CCSDS Space Packet → TM Frame 两层封装全流程测试
 
 ### 计划功能（待完善）
 - **导头指针处理**: 支持数据区子包恢复机制

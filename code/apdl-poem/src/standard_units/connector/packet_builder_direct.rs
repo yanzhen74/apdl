@@ -1,13 +1,17 @@
 //! Direct策略包构建模块
 
 use super::data_structures::MultiplexQueue;
+use apdl_core::DataPlacementConfig;
 use std::collections::HashMap;
 
 /// 构建直接放置包
 pub(super) fn build_direct_packet(
     child_packet_queues: &mut HashMap<String, MultiplexQueue>,
     parent_type: &str,
+    placement_config: &DataPlacementConfig,
 ) -> Option<Vec<u8>> {
+    let target_field = &placement_config.target_field;
+
     // 第一阶段：收集数据（持有可变引用）
     let (mut parent_assembler, child_frame, should_remove) = {
         let current_queue = child_packet_queues.get_mut(parent_type)?;
@@ -28,18 +32,21 @@ pub(super) fn build_direct_packet(
         (parent_assembler, child_frame, should_remove)
     }; // current_queue的可变引用在这里释放
 
-    // 第二阶段：将子包数据填充到父包的data字段中
-    // 获取父包data字段的当前内容
-    if let Ok(data_field_value) = parent_assembler.get_field_value("data") {
+    // 第二阶段：将子包数据填充到父包的目标字段中
+    // 获取父包目标字段的当前内容
+    if let Ok(data_field_value) = parent_assembler.get_field_value(target_field) {
         let data_field_size = data_field_value.len();
 
-        // 创建新的data字段内容：将子包数据复制到data字段中
+        // 创建新的目标字段内容：将子包数据复制到目标字段中
         let mut new_data = vec![0u8; data_field_size];
         let copy_len = child_frame.len().min(data_field_size);
         new_data[..copy_len].copy_from_slice(&child_frame[..copy_len]);
 
-        // 更新父包的data字段
-        if parent_assembler.set_field_value("data", &new_data).is_ok() {
+        // 更新父包的目标字段
+        if parent_assembler
+            .set_field_value(target_field, &new_data)
+            .is_ok()
+        {
             // 组装完整的父包
             if let Ok(parent_frame) = parent_assembler.assemble_frame() {
                 // 将更新后的parent_assembler写回队列以保持状态
