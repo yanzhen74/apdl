@@ -101,12 +101,15 @@ impl FrameAssembler {
 
     /// 组装协议帧
     pub fn assemble_frame(&mut self) -> Result<Vec<u8>, ProtocolError> {
-        // 重新设计打包逻辑：按照添加顺序处理字段，但将所有bit字段累积打包
-        // 期望结果：bit field1, byte field, bit field2, bit field3 -> [byte field, all bits packed together]
+        // 正确的bit字段打包逻辑：
+        // 1. 按字段添加顺序遍历
+        // 2. 连续的bit字段累积到bit_buffer中
+        // 3. 当累积满8bit或遇到非bit字段时，将bit_buffer写入frame_data
+        // 4. 非bit字段直接写入frame_data
 
         let mut frame_data = Vec::new();
-        let mut bit_buffer: u8 = 0; // 用于收集所有bit的缓冲区
-        let mut total_bits_used: u8 = 0; // 当前缓冲区中已使用的bit总数
+        let mut bit_buffer: u64 = 0; // 用于收集连续bit字段的缓冲区（使用u64支持大字段）
+        let mut total_bits_used: u32 = 0; // 当前缓冲区中已使用的bit总数
 
         // 按顺序处理所有字段
         for field in &self.fields {
@@ -115,7 +118,7 @@ impl FrameAssembler {
                 let bit_value = self.get_bit_field_value(&field.field_id)?;
 
                 // 验证bit值不超过字段大小限制
-                let max_value = (1 << bits) - 1;
+                let max_value = (1u64 << bits) - 1;
                 if bit_value > max_value {
                     return Err(ProtocolError::ValueOutOfRange(format!(
                         "Bit field {} value {} exceeds maximum value {}",
@@ -125,21 +128,39 @@ impl FrameAssembler {
 
                 // 将bit值添加到累积缓冲区中
                 // 按顺序放置：先出现的bit放在高位，后出现的bit放在低位
-                let shifted_value = (bit_value & ((1 << bits) - 1)) << (8 - total_bits_used - bits);
-                bit_buffer |= shifted_value;
-                total_bits_used += bits;
+                bit_buffer = (bit_buffer << (bits as u32)) | (bit_value & max_value);
+                total_bits_used += bits as u32;
 
-                // 如果累计的bit数达到8位，就将这个字节添加到帧的末尾（暂存）
+                // 如果累计的bit数达到或超过8位，将已满的字节写入帧
+                while total_bits_used >= 8 {
+                    // 取出最高的8位
+                    let byte_to_write = ((bit_buffer >> (total_bits_used - 8)) & 0xFF) as u8;
+                    frame_data.push(byte_to_write);
+                    total_bits_used -= 8;
+                    // 保留剩余的低位
+                    bit_buffer &= (1u64 << total_bits_used) - 1;
+                }
             } else {
-                // 对于非bit字段，直接添加到帧数据中
+                // 遇到非bit字段时，先刷新bit缓冲区（如果有未满8bit的）
+                if total_bits_used > 0 {
+                    // 将剩余bit左对齐到字节边界
+                    let remaining_byte = ((bit_buffer << (8 - total_bits_used)) & 0xFF) as u8;
+                    frame_data.push(remaining_byte);
+                    bit_buffer = 0;
+                    total_bits_used = 0;
+                }
+
+                // 然后添加非bit字段
                 let field_bytes = self.get_field_bytes(&field.field_id)?;
                 frame_data.extend_from_slice(&field_bytes);
             }
         }
 
-        // 最后将所有累积的bit打包到一起，添加到帧的末尾
+        // 最后如果还有未满8bit的bit字段，也写入（整字节对齐）
         if total_bits_used > 0 {
-            frame_data.push(bit_buffer);
+            // 将剩余bit左对齐到字节边界
+            let remaining_byte = ((bit_buffer << (8 - total_bits_used)) & 0xFF) as u8;
+            frame_data.push(remaining_byte);
         }
 
         // 第一阶段：应用非长度、非CRC规则（如SequenceControl等）
@@ -480,8 +501,8 @@ impl FrameAssembler {
         }
     }
 
-    /// 获取bit字段值
-    pub fn get_bit_field_value(&self, field_name: &str) -> Result<u8, ProtocolError> {
+    /// 获取bit字段值（支持最多64bit的字段）
+    pub fn get_bit_field_value(&self, field_name: &str) -> Result<u64, ProtocolError> {
         let clean_field_name = field_name.trim_start_matches("field: ").trim();
 
         let Some(&index) = self.field_index.get(clean_field_name) else {
@@ -497,17 +518,32 @@ impl FrameAssembler {
         };
 
         // 检查字段是否为bit类型
-        if let UnitType::Bit(_) = field.unit_type {
-            // 首先检查显式设置的值
+        if let UnitType::Bit(bits) = field.unit_type {
+            // 首先检查显式设置的bit字段值
             if let Some(value) = self.bit_field_values.get(clean_field_name) {
-                Ok(*value)
-            } else {
-                // 检查是否有固定值约束
-                if let Some(apdl_core::Constraint::FixedValue(fixed_val)) = &field.constraint {
-                    Ok(*fixed_val as u8) // 假设固定值适合u8
-                } else {
-                    Ok(0) // 默认值
+                return Ok(*value as u64);
+            }
+
+            // 然后检查是否通过set_field_value()设置了字节值
+            if let Some(bytes) = self.field_values.get(clean_field_name) {
+                // 从字节数组中提取bit值
+                if !bytes.is_empty() {
+                    // 对于多字节的bit字段（如11位的apid），需要组合字节
+                    let mut value = 0u64;
+                    for &byte in bytes {
+                        value = (value << 8) | (byte as u64);
+                    }
+                    // 截取到bit字段的实际位数
+                    let mask = (1u64 << bits) - 1;
+                    return Ok(value & mask);
                 }
+            }
+
+            // 最后检查是否有固定值约束
+            if let Some(apdl_core::Constraint::FixedValue(fixed_val)) = &field.constraint {
+                Ok(*fixed_val)
+            } else {
+                Ok(0) // 默认值
             }
         } else {
             Err(ProtocolError::TypeError(format!(
@@ -586,10 +622,13 @@ impl FrameAssembler {
     /// - `Err(ProtocolError)`: 字段未找到或计算错误
     ///
     /// # 示例
-    /// ```
+    /// ```no_run
+    /// # use apdl_poem::standard_units::frame_assembler::core::FrameAssembler;
+    /// # let assembler = FrameAssembler::new();
     /// let (bit_offset, bit_length) = assembler.get_field_bit_position("vcid")?;
     /// println!("vcid字段: 起始bit={}, 长度={}bit", bit_offset, bit_length);
     /// // 输出: vcid字段: 起始bit=28, 长度=3bit
+    /// # Ok::<(), apdl_core::ProtocolError>(())
     /// ```
     pub fn get_field_bit_position(
         &self,
@@ -678,10 +717,13 @@ impl FrameAssembler {
     /// - `Err(ProtocolError)`: 字段未找到或计算错误
     ///
     /// # 示例
-    /// ```
+    /// ```no_run
+    /// # use apdl_poem::standard_units::frame_assembler::core::FrameAssembler;
+    /// # let assembler = FrameAssembler::new();
     /// let offset = assembler.calculate_data_field_offset("tm_data_field")?;
     /// println!("tm_data_field起始于第{}字节", offset);
     /// // 输出: tm_data_field起始于第15字节
+    /// # Ok::<(), apdl_core::ProtocolError>(())
     /// ```
     pub fn calculate_data_field_offset(
         &self,
@@ -719,7 +761,7 @@ impl FrameAssembler {
     /// - 字节长度（向上取整）
     ///
     /// # 示例输出
-    /// ```
+    /// ```text
     /// === 帧字段Bit级布局 ===
     /// [0] tm_sync_flag: bit[0..16], byte[0..2], 16bit
     /// [1] tfvn: bit[16..18], byte[2..3], 2bit
@@ -754,6 +796,6 @@ impl FrameAssembler {
         }
 
         let total_bytes = current_bit_offset.div_ceil(8);
-        println!("\n总计: {}bit = {}字节\n", current_bit_offset, total_bytes);
+        println!("\n总计: {current_bit_offset}bit = {total_bytes}字节\n");
     }
 }

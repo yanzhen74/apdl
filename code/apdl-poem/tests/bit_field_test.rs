@@ -200,22 +200,30 @@ fn test_mixed_bit_and_byte_fields() {
     let frame_len = frame.len();
     println!("Mixed field frame length: {frame_len} bytes");
 
-    // 验证frame长度为2字节 (byte field 1字节 + 所有bit字段打包成1字节)
+    // 新的正确行为：按添加顺序打包
+    // bit1(1bit) → 刷新为字节0 → byte(0xFF) → bit2(2bit) + bit3(5bit) → 刷新为字节2
+    // 字节0: bit1(1) 左对齐 = 1000_0000 = 0x80
+    // 字节1: byte field = 0xFF
+    // 字节2: bit2(10) + bit3(01111) + padding(1bit) = 1001_111_0 = 0x9E
     assert_eq!(
         frame.len(),
-        2,
-        "Frame should be 2 bytes long (byte field 1 byte + all bit fields packed into 1 byte)"
+        3,
+        "Frame should be 3 bytes (bit1 flushed, byte field, bit2+bit3 packed)"
     );
 
-    // 验证期望的2字节结果: 0xFFCF
-    // frame[0] = byte field = 255 = 0xFF
-    // frame[1] = bit_field_1(1) + bit_field_2(2) + bit_field_3(15) = 1 + 2 bits(10) + 5 bits(01111) = 11001111 = 0xCF
     assert_eq!(
-        frame[0], 0xFF,
-        "First byte should be the byte field value (255 = 0xFF)"
+        frame[0], 0x80,
+        "First byte should be bit1(1) left-aligned = 0x80"
     );
-    assert_eq!(frame[1], 0xCF, "Second byte should contain all bit fields packed: bit1(1) + bit2(10) + bit3(01111) = 11001111 = 0xCF");
+    assert_eq!(
+        frame[1], 0xFF,
+        "Second byte should be the byte field value (255 = 0xFF)"
+    );
+    assert_eq!(
+        frame[2], 0x9E,
+        "Third byte should be bit2(10) + bit3(01111) + padding = 0x9E"
+    );
 
-    // 测试通过,证明frame assembler已按要求实现bit字段的紧凑打包
-    println!("Expected: [0xFF, 0xCF] = [255, 207], Actual: {frame:?}");
+    // 测试通过,证明frame assembler按添加顺序正确打包bit字段
+    println!("Expected: [0x80, 0xFF, 0x9E], Actual: {frame:?}");
 }

@@ -38,8 +38,12 @@ fn test_ccsds_standard_two_layer_integration() {
             .expect("Failed to read ccsds_tm_frame.json");
 
     // 3. 将标准 JSON 格式转换为内部 PackageDefinition 格式
-    let child_package_def = convert_standard_json_to_package(&child_package_json, "space_packet");
-    let parent_package_def = convert_standard_json_to_package(&parent_package_json, "tm_frame");
+    let child_package_def =
+        JsonParser::parse_standard_ccsds_json(&child_package_json, "space_packet")
+            .expect("Failed to parse child package JSON");
+    let parent_package_def =
+        JsonParser::parse_standard_ccsds_json(&parent_package_json, "tm_frame")
+            .expect("Failed to parse parent package JSON");
 
     println!("✓ 成功读取并转换标准 CCSDS JSON 定义");
     let name = &child_package_def.name;
@@ -364,7 +368,7 @@ fn test_ccsds_standard_two_layer_integration() {
     let data_offset = parent_assembler
         .calculate_data_field_offset("tm_data_field")
         .expect("Failed to calculate data field offset");
-    println!("✓ 计算得到tm_data_field偏移量: {}字节", data_offset);
+    println!("✓ 计算得到tm_data_field偏移量: {data_offset}字节");
 
     // 打印父包的bit级字段布局
     parent_assembler.print_field_layout();
@@ -403,7 +407,7 @@ fn test_ccsds_standard_two_layer_integration() {
     for (i, chunk) in parent_frame.chunks(16).enumerate() {
         print!("  字节{:02}: ", i * 16);
         for b in chunk {
-            print!("{:02X} ", b);
+            print!("{b:02X} ");
         }
         println!();
     }
@@ -464,95 +468,6 @@ fn test_ccsds_standard_two_layer_integration() {
     println!("  ✓ 数据嵌入与封装");
     println!("  ✓ 语义规则验证");
     println!("\n成功演示了 CCSDS Space Packet → TM Frame 的完整封装流程！\n");
-}
-
-/// 辅助函数：将标准 JSON 格式转换为内部 PackageDefinition 格式
-fn convert_standard_json_to_package(
-    standard_json: &str,
-    package_name: &str,
-) -> apdl_core::PackageDefinition {
-    use apdl_core::*;
-    use serde_json::Value;
-
-    let json: Value = serde_json::from_str(standard_json).expect("Failed to parse JSON");
-
-    // 提取字段定义
-    let fields = json["fields"].as_array().expect("Missing fields array");
-
-    let mut units = Vec::new();
-
-    for field in fields {
-        let field_name = field["name"].as_str().expect("Missing field name");
-        let field_type = field["type"].as_str().expect("Missing field type");
-        let length_str = field["length"].as_str().expect("Missing field length");
-
-        // 解析字段类型
-        let unit_type = match field_type {
-            "Uint8" => UnitType::Uint(8),
-            "Uint16" => UnitType::Uint(16),
-            "Uint32" => UnitType::Uint(32),
-            "RawData" => UnitType::RawData,
-            _ => UnitType::RawData,
-        };
-
-        // 解析长度
-        let (size, unit) = if length_str == "dynamic" {
-            (0, LengthUnit::Dynamic)
-        } else if length_str.ends_with("byte") {
-            let size_str = length_str.trim_end_matches("byte");
-            let size: usize = size_str.parse().unwrap_or(0);
-            (size, LengthUnit::Byte)
-        } else {
-            (0, LengthUnit::Dynamic)
-        };
-
-        // 解析作用域
-        let scope_str = field
-            .get("scope")
-            .and_then(|s| s.as_str())
-            .unwrap_or("layer(default)");
-        let scope = if scope_str.starts_with("layer(") {
-            let layer_name = scope_str
-                .trim_start_matches("layer(")
-                .trim_end_matches(')')
-                .to_string();
-            ScopeDesc::Global(layer_name)
-        } else {
-            ScopeDesc::Global("default".to_string())
-        };
-
-        // 创建字段定义
-        let syntax_unit = SyntaxUnit {
-            field_id: field_name.to_string(),
-            unit_type,
-            length: LengthDesc { size, unit },
-            scope,
-            cover: CoverDesc::EntireField,
-            constraint: None,
-            alg: None,
-            associate: vec![],
-            desc: field
-                .get("description")
-                .and_then(|d| d.as_str())
-                .unwrap_or("")
-                .to_string(),
-        };
-
-        units.push(syntax_unit);
-    }
-
-    // 创建包定义
-    PackageDefinition {
-        name: package_name.to_string(),
-        display_name: json["name"].as_str().unwrap_or(package_name).to_string(),
-        package_type: json["type"].as_str().unwrap_or("unknown").to_string(),
-        description: json["description"].as_str().unwrap_or("").to_string(),
-        layers: vec![LayerDefinition {
-            name: "default_layer".to_string(),
-            units,
-            rules: vec![], // 简化处理，不转换规则
-        }],
-    }
 }
 
 /// 辅助函数：打印十六进制数据
