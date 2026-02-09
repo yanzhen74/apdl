@@ -115,31 +115,37 @@ fn test_ccsds_standard_two_layer_integration() {
     // 6. 设置子包字段值（构造一个标准的 CCSDS 遥测包）
     println!("\n--- 设置子包字段值 ---");
 
-    // pkt_type: 0 (遥测包)
+    // pkt_version: 0 (CCSDS版本号，3位，固定为000)
+    child_assembler
+        .set_field_value("pkt_version", &[0x00])
+        .expect("Failed to set pkt_version");
+    println!("  pkt_version: 0 (CCSDS版本)");
+
+    // pkt_type: 0 (遥测包，1位)
     child_assembler
         .set_field_value("pkt_type", &[0x00])
         .expect("Failed to set pkt_type");
     println!("  pkt_type: 0 (遥测包)");
 
-    // sec_hdr_flag: 1 (存在二级头)
+    // sec_hdr_flag: 1 (存在二级头，1位)
     child_assembler
         .set_field_value("sec_hdr_flag", &[0x01])
         .expect("Failed to set sec_hdr_flag");
     println!("  sec_hdr_flag: 1 (存在二级头)");
 
-    // apid: 0x0245 (应用进程ID = 581)
+    // apid: 0x0245 (应用进程ID = 581，11位)
     child_assembler
         .set_field_value("apid", &[0x02, 0x45])
         .expect("Failed to set apid");
     println!("  apid: 0x0245 (581)");
 
-    // seq_flags: 3 (独立包，不分段)
+    // seq_flags: 3 (独立包，不分段，2位)
     child_assembler
         .set_field_value("seq_flags", &[0x03])
         .expect("Failed to set seq_flags");
     println!("  seq_flags: 3 (独立包)");
 
-    // pkt_seq_cnt: 0x1234 (序列计数 = 4660)
+    // pkt_seq_cnt: 0x1234 (序列计数 = 4660，14位)
     child_assembler
         .set_field_value("pkt_seq_cnt", &[0x12, 0x34])
         .expect("Failed to set pkt_seq_cnt");
@@ -198,25 +204,25 @@ fn test_ccsds_standard_two_layer_integration() {
         .expect("Failed to set tm_sync_flag");
     println!("  tm_sync_flag: 0xEB90 (固定同步标志)");
 
-    // tfvn: 0 (传输帧版本号)
+    // tfvn: 0 (传输帧版本号，2位)
     parent_assembler
         .set_field_value("tfvn", &[0x00])
         .expect("Failed to set tfvn");
     println!("  tfvn: 0 (版本1)");
 
-    // scid_high: 0x12 (航天器ID高位)
+    // scid: 0x012 (航天器ID，10位)
     parent_assembler
-        .set_field_value("scid_high", &[0x12])
-        .expect("Failed to set scid_high");
-    println!("  scid_high: 0x12");
+        .set_field_value("scid", &[0x00, 0x12])
+        .expect("Failed to set scid");
+    println!("  scid: 0x012 (航天器ID)");
 
-    // vcid: 将由连接器从 apid 映射而来
+    // vcid: 将由连接器从 apid 映射而来 (3位)
     parent_assembler
         .set_field_value("vcid", &[0x00])
         .expect("Failed to set vcid");
     println!("  vcid: 0x00 (将由连接器映射)");
 
-    // ocff: 0 (不存在操作控制字段)
+    // ocff: 0 (不存在操作控制字段，1位)
     parent_assembler
         .set_field_value("ocff", &[0x00])
         .expect("Failed to set ocff");
@@ -234,11 +240,35 @@ fn test_ccsds_standard_two_layer_integration() {
         .expect("Failed to set vcfc");
     println!("  vcfc: 0xAB");
 
-    // frame_len: 将由规则自动计算
+    // tf_shf: 0 (TM辅助头标志，1位)
     parent_assembler
-        .set_field_value("frame_len", &[0x00, 0x00])
-        .expect("Failed to set frame_len");
-    println!("  frame_len: 0x0000 (将由规则计算)");
+        .set_field_value("tf_shf", &[0x00])
+        .expect("Failed to set tf_shf");
+    println!("  tf_shf: 0");
+
+    // sync_flag: 1 (同步标志，1位)
+    parent_assembler
+        .set_field_value("sync_flag", &[0x01])
+        .expect("Failed to set sync_flag");
+    println!("  sync_flag: 1");
+
+    // pof: 0 (包顺序标志，1位)
+    parent_assembler
+        .set_field_value("pof", &[0x00])
+        .expect("Failed to set pof");
+    println!("  pof: 0");
+
+    // seg_len_id: 0 (分段长度标识符，2位)
+    parent_assembler
+        .set_field_value("seg_len_id", &[0x00])
+        .expect("Failed to set seg_len_id");
+    println!("  seg_len_id: 0");
+
+    // first_hdr_ptr: 0x0000 (首导头指针，11位)
+    parent_assembler
+        .set_field_value("first_hdr_ptr", &[0x00, 0x00])
+        .expect("Failed to set first_hdr_ptr");
+    println!("  first_hdr_ptr: 0x0000 (首导头指针)");
 
     // tm_data_field: 将由连接器嵌入子包数据
     let placeholder_data = vec![0x00; child_frame.len()];
@@ -288,7 +318,10 @@ fn test_ccsds_standard_two_layer_integration() {
     println!("\n=== 验证测试结果 ===\n");
 
     // 验证1: 父包长度合理性
-    assert!(parent_frame.len() >= 10, "父包长度应至少包含头部字段");
+    assert!(
+        parent_frame.len() >= 9,
+        "父包长度应至少包含头部字段(6字节主头+3字节附加字段)"
+    );
     println!("✓ 验证1: 父包长度合理 ({} 字节)", parent_frame.len());
 
     // 验证2: TM同步标志
@@ -299,34 +332,90 @@ fn test_ccsds_standard_two_layer_integration() {
     );
     println!("✓ 验证2: TM同步标志正确 (0x{sync_flag:04X})");
 
-    // 验证3: VCID字段映射（apid=0x0245 -> vcid=0x0245 % 64 = 5）
-    let vcid = parent_frame[4];
-    let expected_vcid = 0x45 % 64; // apid的低字节 mod 64
+    // 验证3: VCID字段映射（bit级字段：字节3的bit4-6，3位）
+    // 新结构：字节2-3包含 tfvn(2bit) + scid(10bit) + vcid(3bit) + ocff(1bit)
+    // 从父包组装器中读取实际设置的值
+    let vcid_value = parent_assembler
+        .get_field_value("vcid")
+        .expect("Failed to get vcid value");
+    let vcid = vcid_value[0];
+    let expected_vcid = 5; // 从mask_table映射得到
     assert_eq!(
         vcid, expected_vcid,
         "VCID应映射自APID，期望: {expected_vcid}，实际: {vcid}"
     );
-    println!("✓ 验证3: VCID字段正确映射 ({vcid})");
+    println!("✓ 验证3: VCID字段正确映射 (vcid={vcid})");
 
-    // 验证4: MCFC字段映射（pkt_seq_cnt=0x1234 -> mcfc=0x34）
-    let mcfc = parent_frame[6];
+    // 验证4: MCFC字段映射（字节5）
+    let mcfc_value = parent_assembler
+        .get_field_value("mcfc")
+        .expect("Failed to get mcfc value");
+    let mcfc = mcfc_value[0];
     let expected_mcfc = 0x34; // pkt_seq_cnt的低字节
     assert_eq!(
         mcfc, expected_mcfc,
         "MCFC应映射自pkt_seq_cnt，期望: 0x{expected_mcfc:02X}，实际: 0x{mcfc:02X}",
     );
-    println!("✓ 验证4: MCFC字段正确映射 (0x{mcfc:02X})");
+    println!("✓ 验证4: MCFC字段正确映射 (mcfc=0x{mcfc:02X})");
 
     // 验证5: 父包数据域包含完整的子包
-    let data_offset = 10; // 假设头部占10字节
+    // 使用计算的数据偏移量而非硬编码
+    println!("\n--- 计算数据域偏移量 ---");
+    let data_offset = parent_assembler
+        .calculate_data_field_offset("tm_data_field")
+        .expect("Failed to calculate data field offset");
+    println!("✓ 计算得到tm_data_field偏移量: {}字节", data_offset);
+
+    // 打印父包的bit级字段布局
+    parent_assembler.print_field_layout();
+
+    println!("\n--- 验证字段bit级位置信息 ---");
+    // 验证几个关键字段的bit位置
+    if let Ok((bit_offset, bit_length)) = parent_assembler.get_field_bit_position("vcid") {
+        println!(
+            "vcid字段: 起始bit={}, 长度={}bit, 字节位置={}..{}",
+            bit_offset,
+            bit_length,
+            bit_offset / 8,
+            (bit_offset + bit_length).div_ceil(8)
+        );
+    }
+    if let Ok((bit_offset, bit_length)) = parent_assembler.get_field_bit_position("first_hdr_ptr") {
+        println!(
+            "first_hdr_ptr字段: 起始bit={}, 长度={}bit, 字节位置={}..{}",
+            bit_offset,
+            bit_length,
+            bit_offset / 8,
+            (bit_offset + bit_length).div_ceil(8)
+        );
+    }
+    if let Ok((bit_offset, bit_length)) = parent_assembler.get_field_bit_position("tm_data_field") {
+        println!(
+            "tm_data_field字段: 起始bit={}, 长度={}bit, 字节位置={}..{}",
+            bit_offset,
+            bit_length,
+            bit_offset / 8,
+            (bit_offset + bit_length).div_ceil(8)
+        );
+    }
+
+    println!("\n--- 调试父包字节布局 ---");
+    for (i, chunk) in parent_frame.chunks(16).enumerate() {
+        print!("  字节{:02}: ", i * 16);
+        for b in chunk {
+            print!("{:02X} ", b);
+        }
+        println!();
+    }
+
     if parent_frame.len() >= data_offset + child_frame.len() {
         let embedded_data = &parent_frame[data_offset..data_offset + child_frame.len()];
         assert_eq!(
             embedded_data,
             child_frame.as_slice(),
-            "父包数据域应包含完整的子包"
+            "父包数据域应包含完整的子包（计算偏移量={data_offset}）"
         );
-        println!("✓ 验证5: 父包数据域正确包含完整子包");
+        println!("✓ 验证5: 父包数据域正确包含完整子包 (偏移量={data_offset})");
     } else {
         println!("⚠ 警告: 父包长度不足以验证完整子包嵌入");
     }

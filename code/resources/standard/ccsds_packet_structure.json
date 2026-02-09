@@ -5,54 +5,70 @@
   "type": "packet",
   "fields": [
     {
+      "name": "pkt_version",
+      "type": "Bit(3)",
+      "length": "3bit",
+      "scope": "layer(transport)",
+      "cover": "entire_field",
+      "constraint": "fixed(0)",
+      "description": "数据包版本号(固定为0,二进制000)",
+      "offset": 0,
+      "bit_offset": 0
+    },
+    {
       "name": "pkt_type",
-      "type": "Uint8",
-      "length": "1byte",
+      "type": "Bit(1)",
+      "length": "1bit",
       "scope": "layer(transport)",
       "cover": "entire_field",
       "constraint": "range(0..=1)",
       "description": "包类型(0=遥测包,1=遥控包)",
-      "offset": 0
+      "offset": 0,
+      "bit_offset": 3
     },
     {
       "name": "sec_hdr_flag",
-      "type": "Uint8",
-      "length": "1byte",
+      "type": "Bit(1)",
+      "length": "1bit",
       "scope": "layer(transport)",
       "cover": "entire_field",
       "constraint": "range(0..=1)",
       "description": "二级头标志(0=不存在,1=存在)",
-      "offset": 1
+      "offset": 0,
+      "bit_offset": 4
     },
     {
       "name": "apid",
-      "type": "Uint16",
-      "length": "2byte",
+      "type": "Bit(11)",
+      "length": "11bit",
       "scope": "layer(transport)",
       "cover": "entire_field",
       "constraint": "range(0..=2047)",
-      "description": "应用进程标识符(APID)",
-      "offset": 2
+      "description": "应用进程标识符APID(11位,0-2047)",
+      "offset": 0,
+      "bit_offset": 5
     },
     {
       "name": "seq_flags",
-      "type": "Uint8",
-      "length": "1byte",
+      "type": "Bit(2)",
+      "length": "2bit",
       "scope": "layer(transport)",
       "cover": "entire_field",
       "constraint": "range(0..=3)",
-      "description": "序列标志(0=继续,1=第一,2=最后,3=独立)",
-      "offset": 4
+      "description": "序列标志(00=继续,01=首段,10=末段,11=未分段)",
+      "offset": 2,
+      "bit_offset": 0
     },
     {
       "name": "pkt_seq_cnt",
-      "type": "Uint16",
-      "length": "2byte",
+      "type": "Bit(14)",
+      "length": "14bit",
       "scope": "layer(transport)",
       "cover": "entire_field",
       "constraint": "range(0..=16383)",
-      "description": "包序列计数(0-16383循环)",
-      "offset": 5
+      "description": "包序列计数(14位,0-16383循环)",
+      "offset": 2,
+      "bit_offset": 2
     },
     {
       "name": "pkt_len",
@@ -62,7 +78,7 @@
       "cover": "entire_field",
       "constraint": "range(0..=65535)",
       "description": "包数据长度-1(字节数)",
-      "offset": 7
+      "offset": 4
     },
     {
       "name": "pkt_data",
@@ -70,8 +86,8 @@
       "length": "dynamic",
       "scope": "layer(application)",
       "cover": "entire_field",
-      "description": "包数据字段(可变长度)",
-      "offset": 9
+      "description": "包数据字段(可变长度,1-65536字节)",
+      "offset": 6
     },
     {
       "name": "pkt_ecf",
@@ -149,7 +165,18 @@
     "standard": "CCSDS 133.0-B-2",
     "category": "space_packet_protocol",
     "layer": "transport",
-    "typical_size": "variable (min: 7 bytes header + data)",
-    "usage": "航天器间数据包传输"
+    "header_size": "6 bytes (主头部固定)",
+    "typical_size": "variable (min: 6 bytes header + 1 byte data)",
+    "usage": "航天器间数据包传输",
+    "notes": [
+      "主头部固定6字节,包含48位字段",
+      "版本号3位固定为000",
+      "包类型1位区分遥测/遥控",
+      "辅助头标志1位指示是否存在辅助头",
+      "APID 11位支持0-2047个应用进程",
+      "序列标志2位标识分段状态",
+      "序列计数14位支持0-16383循环计数",
+      "包长度16位指示数据字段长度-1"
+    ]
   }
 }

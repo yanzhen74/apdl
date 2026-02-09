@@ -16,43 +16,47 @@
     },
     {
       "name": "tfvn",
-      "type": "Uint8",
-      "length": "1byte",
+      "type": "Bit(2)",
+      "length": "2bit",
       "scope": "layer(data_link)",
       "cover": "entire_field",
-      "constraint": "range(0..=7)",
-      "description": "传输帧版本号(通常为0)",
-      "offset": 2
+      "constraint": "range(0..=3)",
+      "description": "传输帧版本号(2位,通常为00)",
+      "offset": 2,
+      "bit_offset": 0
     },
     {
-      "name": "scid_high",
-      "type": "Uint8",
-      "length": "1byte",
+      "name": "scid",
+      "type": "Bit(10)",
+      "length": "10bit",
       "scope": "layer(data_link)",
       "cover": "entire_field",
-      "constraint": "range(0..=255)",
-      "description": "航天器标识符高8位",
-      "offset": 3
+      "constraint": "range(0..=1023)",
+      "description": "航天器标识符(10位,0-1023)",
+      "offset": 2,
+      "bit_offset": 2
     },
     {
       "name": "vcid",
-      "type": "Uint8",
-      "length": "1byte",
+      "type": "Bit(3)",
+      "length": "3bit",
       "scope": "layer(data_link)",
       "cover": "entire_field",
-      "constraint": "range(0..=63)",
-      "description": "虚拟通道标识符(0-63)",
-      "offset": 4
+      "constraint": "range(0..=7)",
+      "description": "虚拟通道标识符(3位,0-7)",
+      "offset": 3,
+      "bit_offset": 4
     },
     {
       "name": "ocff",
-      "type": "Uint8",
-      "length": "1byte",
+      "type": "Bit(1)",
+      "length": "1bit",
       "scope": "layer(data_link)",
       "cover": "entire_field",
       "constraint": "range(0..=1)",
       "description": "操作控制字段标志(0=不存在,1=存在)",
-      "offset": 5
+      "offset": 4,
+      "bit_offset": 0
     },
     {
       "name": "mcfc",
@@ -62,7 +66,7 @@
       "cover": "entire_field",
       "constraint": "range(0..=255)",
       "description": "主通道帧计数(0-255循环)",
-      "offset": 6
+      "offset": 5
     },
     {
       "name": "vcfc",
@@ -72,17 +76,62 @@
       "cover": "entire_field",
       "constraint": "range(0..=255)",
       "description": "虚拟通道帧计数(0-255循环)",
-      "offset": 7
+      "offset": 6
     },
     {
-      "name": "frame_len",
-      "type": "Uint16",
-      "length": "2byte",
+      "name": "tf_shf",
+      "type": "Bit(1)",
+      "length": "1bit",
       "scope": "layer(data_link)",
       "cover": "entire_field",
-      "constraint": "range(0..=65535)",
-      "description": "帧数据长度-1(字节数)",
-      "offset": 8
+      "constraint": "range(0..=1)",
+      "description": "TM辅助头标志(0=不存在,1=存在)",
+      "offset": 7,
+      "bit_offset": 0
+    },
+    {
+      "name": "sync_flag",
+      "type": "Bit(1)",
+      "length": "1bit",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=1)",
+      "description": "同步标志(0=无效,1=有效)",
+      "offset": 7,
+      "bit_offset": 1
+    },
+    {
+      "name": "pof",
+      "type": "Bit(1)",
+      "length": "1bit",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=1)",
+      "description": "包顺序标志(0=正向,1=逆向)",
+      "offset": 7,
+      "bit_offset": 2
+    },
+    {
+      "name": "seg_len_id",
+      "type": "Bit(2)",
+      "length": "2bit",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=3)",
+      "description": "分段长度标识符(00=未分段,其他保留)",
+      "offset": 7,
+      "bit_offset": 3
+    },
+    {
+      "name": "first_hdr_ptr",
+      "type": "Bit(11)",
+      "length": "11bit",
+      "scope": "layer(data_link)",
+      "cover": "entire_field",
+      "constraint": "range(0..=2047)",
+      "description": "首导头指针(11位,指向数据区首包起始位置)",
+      "offset": 7,
+      "bit_offset": 5
     },
     {
       "name": "tm_data_field",
@@ -91,7 +140,7 @@
       "scope": "layer(application)",
       "cover": "entire_field",
       "description": "TM数据域(可包含多个空间包)",
-      "offset": 10
+      "offset": 9
     },
     {
       "name": "tm_fecf",
@@ -113,6 +162,13 @@
       "severity": "error"
     },
     {
+      "type": "fixed_value_validation",
+      "description": "验证传输帧版本号为00",
+      "field": "tfvn",
+      "expected_value": "0",
+      "severity": "warning"
+    },
+    {
       "type": "sequence_control",
       "description": "主通道帧计数器应递增并循环",
       "field": "mcfc",
@@ -130,13 +186,6 @@
       "group_by": "vcid"
     },
     {
-      "type": "dependency",
-      "description": "frame_len字段依赖于tm_data_field的实际长度",
-      "source_field": "frame_len",
-      "target_field": "tm_data_field",
-      "logic": "frame_len = length(tm_data_field) - 1"
-    },
-    {
       "type": "checksum_validation",
       "description": "对整个TM帧进行CRC-16校验",
       "field": "tm_fecf",
@@ -149,18 +198,26 @@
       }
     },
     {
-      "type": "boundary_detection",
-      "description": "根据frame_len确定帧边界",
-      "length_field": "frame_len",
-      "data_field": "tm_data_field",
-      "calculation": "frame_len + 1"
+      "type": "header_pointer_resolution",
+      "description": "首导头指针定位数据区首包",
+      "field": "first_hdr_ptr",
+      "data_area_field": "tm_data_field",
+      "special_values": {
+        "0x07FE": "idle_frame",
+        "0x07FF": "no_packet_start"
+      }
     },
     {
       "type": "constraint_validation",
       "description": "验证虚拟通道ID的有效范围",
       "field": "vcid",
-      "constraint": "0 <= vcid <= 63",
-      "reserved_values": [63]
+      "constraint": "0 <= vcid <= 7"
+    },
+    {
+      "type": "constraint_validation",
+      "description": "验证航天器ID的有效范围",
+      "field": "scid",
+      "constraint": "0 <= scid <= 1023"
     },
     {
       "type": "enum_mapping",
@@ -168,7 +225,7 @@
       "field": "tfvn",
       "mappings": [
         {"value": 0, "name": "version_1", "description": "版本1(常用)"},
-        {"value": 1, "name": "version_2", "description": "版本2(扩展)"}
+        {"value": 1, "name": "version_2", "description": "版本2(保留)"}
       ]
     },
     {
@@ -179,19 +236,33 @@
       "logic": "if ocff == 1 then parse operation_control_field"
     },
     {
+      "type": "conditional_field",
+      "description": "根据tf_shf标志决定是否存在TM辅助头",
+      "condition_field": "tf_shf",
+      "dependent_fields": ["tm_secondary_header"],
+      "logic": "if tf_shf == 1 then parse tm_secondary_header"
+    },
+    {
       "type": "multiplexing",
       "description": "多个虚拟通道复用到单一主通道",
       "field": "vcid",
       "logic": "demux_by_vcid",
-      "max_channels": 64
+      "max_channels": 8
     }
   ],
   "metadata": {
     "standard": "CCSDS 132.0-B-3",
     "category": "telemetry_transfer_frame",
     "layer": "data_link",
+    "header_size": "6 bytes (主头部) + 可选辅助头",
     "typical_size": "variable (常用: 1115 bytes)",
     "usage": "航天器遥测数据下行传输",
-    "sync_pattern": "0xEB90"
+    "sync_pattern": "0xEB90",
+    "notes": [
+      "主头部固定6字节: 同步标志(2) + 帧头部(4)",
+      "首导头指针11位可寻址最大2048字节数据区",
+      "虚拟通道ID为3位,支持0-7共8个虚拟通道",
+      "航天器ID为10位,支持0-1023个航天器标识"
+    ]
   }
 }

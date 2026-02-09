@@ -578,4 +578,182 @@ impl FrameAssembler {
         crc &= 0x7FFF; // 保留低15位
         crc
     }
+
+    /// 获取字段的bit级位置（从帧起始位置算起的bit偏移）
+    ///
+    /// # 返回
+    /// - `Ok((bit_offset, bit_length))`: (bit偏移量, bit长度)
+    /// - `Err(ProtocolError)`: 字段未找到或计算错误
+    ///
+    /// # 示例
+    /// ```
+    /// let (bit_offset, bit_length) = assembler.get_field_bit_position("vcid")?;
+    /// println!("vcid字段: 起始bit={}, 长度={}bit", bit_offset, bit_length);
+    /// // 输出: vcid字段: 起始bit=28, 长度=3bit
+    /// ```
+    pub fn get_field_bit_position(
+        &self,
+        field_name: &str,
+    ) -> Result<(usize, usize), ProtocolError> {
+        let clean_field_name = field_name.trim_start_matches("field: ").trim();
+
+        let Some(&field_index) = self.field_index.get(clean_field_name) else {
+            return Err(ProtocolError::FieldNotFound(format!(
+                "Field not found: {clean_field_name}"
+            )));
+        };
+
+        let Some(field) = self.fields.get(field_index) else {
+            return Err(ProtocolError::FieldNotFound(format!(
+                "Field definition not found for index: {field_index}"
+            )));
+        };
+
+        // 计算该字段之前所有字段占用的总bit数
+        let mut total_bits_before = 0usize;
+        for i in 0..field_index {
+            if let Some(prev_field) = self.fields.get(i) {
+                let field_bits = self.get_field_bit_length(prev_field)?;
+                total_bits_before += field_bits;
+            }
+        }
+
+        // 获取当前字段的bit长度
+        let field_bit_length = self.get_field_bit_length(field)?;
+
+        Ok((total_bits_before, field_bit_length))
+    }
+
+    /// 获取字段的bit长度
+    ///
+    /// # 参数
+    /// - `field`: 字段定义
+    ///
+    /// # 返回
+    /// - `Ok(bit_length)`: 字段的bit长度
+    /// - `Err(ProtocolError)`: 计算错误
+    pub fn get_field_bit_length(&self, field: &SyntaxUnit) -> Result<usize, ProtocolError> {
+        match field.length.unit {
+            LengthUnit::Bit => {
+                // bit字段直接返回bit数
+                if let UnitType::Bit(bits) = field.unit_type {
+                    Ok(bits as usize)
+                } else {
+                    Ok(field.length.size)
+                }
+            }
+            LengthUnit::Byte => {
+                // 字节字段转换为bit数
+                Ok(field.length.size * 8)
+            }
+            LengthUnit::Dynamic => {
+                // 动态长度字段，尝试从已存储的值获取长度
+                if let Some(stored_value) = self.field_values.get(&field.field_id) {
+                    Ok(stored_value.len() * 8)
+                } else {
+                    Ok(8) // 默认1字节=8bit
+                }
+            }
+            LengthUnit::Expression(_) => {
+                // 表达式长度字段，使用默认值或已存储的值
+                if let Some(stored_value) = self.field_values.get(&field.field_id) {
+                    Ok(stored_value.len() * 8)
+                } else {
+                    Ok(32) // 默认4字节=32bit
+                }
+            }
+        }
+    }
+
+    /// 计算数据域的起始位置（字节偏移）
+    ///
+    /// 用于计算父包中数据域字段（如tm_data_field）的实际字节偏移量。
+    /// 这个偏移量是所有前置字段（包含bit字段整字节对齐后）占用的总字节数。
+    ///
+    /// # 参数
+    /// - `data_field_name`: 数据域字段名称
+    ///
+    /// # 返回
+    /// - `Ok(byte_offset)`: 数据域在帧中的字节偏移量
+    /// - `Err(ProtocolError)`: 字段未找到或计算错误
+    ///
+    /// # 示例
+    /// ```
+    /// let offset = assembler.calculate_data_field_offset("tm_data_field")?;
+    /// println!("tm_data_field起始于第{}字节", offset);
+    /// // 输出: tm_data_field起始于第15字节
+    /// ```
+    pub fn calculate_data_field_offset(
+        &self,
+        data_field_name: &str,
+    ) -> Result<usize, ProtocolError> {
+        let clean_field_name = data_field_name.trim_start_matches("field: ").trim();
+
+        let Some(&field_index) = self.field_index.get(clean_field_name) else {
+            return Err(ProtocolError::FieldNotFound(format!(
+                "Field not found: {clean_field_name}"
+            )));
+        };
+
+        // 计算该字段之前所有字段占用的总bit数
+        let mut total_bits_before = 0usize;
+        for i in 0..field_index {
+            if let Some(prev_field) = self.fields.get(i) {
+                let field_bits = self.get_field_bit_length(prev_field)?;
+                total_bits_before += field_bits;
+            }
+        }
+
+        // 将bit数向上取整为字节数（bit字段需要整字节对齐）
+        let byte_offset = total_bits_before.div_ceil(8);
+
+        Ok(byte_offset)
+    }
+
+    /// 打印所有字段的bit级布局信息
+    ///
+    /// 用于调试和验证帧结构，显示每个字段的:
+    /// - bit起始位置
+    /// - bit长度
+    /// - 字节起始位置
+    /// - 字节长度（向上取整）
+    ///
+    /// # 示例输出
+    /// ```
+    /// === 帧字段Bit级布局 ===
+    /// [0] tm_sync_flag: bit[0..16], byte[0..2], 16bit
+    /// [1] tfvn: bit[16..18], byte[2..3], 2bit
+    /// [2] scid: bit[18..28], byte[2..4], 10bit
+    /// [3] vcid: bit[28..31], byte[3..4], 3bit
+    /// ...
+    /// 总计: 120bit = 15字节
+    /// ```
+    pub fn print_field_layout(&self) {
+        println!("\n=== 帧字段Bit级布局 ===");
+
+        let mut current_bit_offset = 0usize;
+        for (index, field) in self.fields.iter().enumerate() {
+            if let Ok(bit_length) = self.get_field_bit_length(field) {
+                let bit_end = current_bit_offset + bit_length;
+                let byte_start = current_bit_offset / 8;
+                let byte_end = bit_end.div_ceil(8);
+
+                println!(
+                    "[{}] {}: bit[{}..{}], byte[{}..{}], {}bit",
+                    index,
+                    field.field_id,
+                    current_bit_offset,
+                    bit_end,
+                    byte_start,
+                    byte_end,
+                    bit_length
+                );
+
+                current_bit_offset = bit_end;
+            }
+        }
+
+        let total_bytes = current_bit_offset.div_ceil(8);
+        println!("\n总计: {}bit = {}字节\n", current_bit_offset, total_bytes);
+    }
 }
