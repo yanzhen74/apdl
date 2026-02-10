@@ -84,8 +84,7 @@ impl FrameDisassembler {
 
                     if byte_offset + byte_size > frame_data.len() {
                         return Err(ProtocolError::InvalidFrameFormat(format!(
-                            "Field {} exceeds frame boundary",
-                            field_name
+                            "Field {field_name} exceeds frame boundary"
                         )));
                     }
 
@@ -141,7 +140,7 @@ impl FrameDisassembler {
         fields
             .get(field_name)
             .cloned()
-            .ok_or_else(|| ProtocolError::FieldNotFound(format!("Field not found: {}", field_name)))
+            .ok_or_else(|| ProtocolError::FieldNotFound(format!("Field not found: {field_name}")))
     }
 
     /// 获取字段的bit级位置
@@ -158,15 +157,13 @@ impl FrameDisassembler {
     ) -> Result<(usize, usize), ProtocolError> {
         let Some(&field_index) = self.field_index.get(field_name) else {
             return Err(ProtocolError::FieldNotFound(format!(
-                "Field not found: {}",
-                field_name
+                "Field not found: {field_name}"
             )));
         };
 
         let Some(field) = self.fields.get(field_index) else {
             return Err(ProtocolError::FieldNotFound(format!(
-                "Field definition not found for index: {}",
-                field_index
+                "Field definition not found for index: {field_index}"
             )));
         };
 
@@ -225,9 +222,9 @@ impl FrameDisassembler {
     pub fn print_disassemble_result(&self, fields: &HashMap<String, Vec<u8>>) {
         println!("\n=== 帧拆包结果 ===");
         for (field_name, value) in fields {
-            print!("{}: ", field_name);
+            print!("{field_name}: ");
             for byte in value {
-                print!("{:02X} ", byte);
+                print!("{byte:02X} ");
             }
             println!();
         }

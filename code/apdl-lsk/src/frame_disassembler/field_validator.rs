@@ -28,8 +28,7 @@ impl FieldValidator {
                 let actual = Self::bytes_to_u64(value);
                 if actual != *expected {
                     return Err(ProtocolError::ValidationError(format!(
-                        "Field '{}' fixed value mismatch: expected {}, got {}",
-                        field_name, expected, actual
+                        "Field '{field_name}' fixed value mismatch: expected {expected}, got {actual}"
                     )));
                 }
             }
@@ -37,8 +36,7 @@ impl FieldValidator {
                 let actual = Self::bytes_to_u64(value);
                 if actual < *min || actual > *max {
                     return Err(ProtocolError::ValueOutOfRange(format!(
-                        "Field '{}' out of range: expected [{}, {}], got {}",
-                        field_name, min, max, actual
+                        "Field '{field_name}' out of range: expected [{min}, {max}], got {actual}"
                     )));
                 }
             }
@@ -48,8 +46,7 @@ impl FieldValidator {
                 let valid_nums: Vec<u64> = valid_values.iter().map(|(_, v)| *v).collect();
                 if !valid_nums.contains(&actual) {
                     return Err(ProtocolError::ValidationError(format!(
-                        "Field '{}' invalid enum value: expected {:?}, got {}",
-                        field_name, valid_nums, actual
+                        "Field '{field_name}' invalid enum value: expected {valid_nums:?}, got {actual}"
                     )));
                 }
             }
@@ -83,8 +80,7 @@ impl FieldValidator {
         let calculated_crc = Self::calculate_crc16(data);
         if calculated_crc != expected_crc {
             return Err(ProtocolError::ChecksumError(format!(
-                "CRC16 mismatch: expected 0x{:04X}, got 0x{:04X}",
-                expected_crc, calculated_crc
+                "CRC16 mismatch: expected 0x{expected_crc:04X}, got 0x{calculated_crc:04X}"
             )));
         }
         Ok(())
@@ -111,8 +107,7 @@ impl FieldValidator {
         let calculated: u16 = data.iter().map(|&b| b as u16).sum();
         if calculated != expected {
             return Err(ProtocolError::ChecksumError(format!(
-                "Checksum mismatch: expected {}, got {}",
-                expected, calculated
+                "Checksum mismatch: expected {expected}, got {calculated}"
             )));
         }
         Ok(())

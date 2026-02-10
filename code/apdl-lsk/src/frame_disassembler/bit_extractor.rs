@@ -33,8 +33,7 @@ pub fn extract_bit_field(
 ) -> Result<u64, ProtocolError> {
     if bit_length == 0 || bit_length > 64 {
         return Err(ProtocolError::InvalidFrameFormat(format!(
-            "Invalid bit length: {}",
-            bit_length
+            "Invalid bit length: {bit_length}"
         )));
     }
 
@@ -53,8 +52,8 @@ pub fn extract_bit_field(
 
     // 读取涉及的所有字节并组合成一个大整数
     let mut value = 0u64;
-    for byte_idx in start_byte..=end_byte {
-        value = (value << 8) | (frame_data[byte_idx] as u64);
+    for &byte in &frame_data[start_byte..=end_byte] {
+        value = (value << 8) | (byte as u64);
     }
 
     // 计算需要右移的位数以提取目标bit范围

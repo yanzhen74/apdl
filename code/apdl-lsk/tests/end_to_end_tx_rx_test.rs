@@ -178,7 +178,8 @@ fn test_end_to_end_ccsds_space_packet() {
     // 组装帧
     let tx_frame = tx_assembler.assemble_frame().unwrap();
 
-    println!("发送帧数据 ({} 字节):", tx_frame.len());
+    let len = tx_frame.len();
+    println!("发送帧数据 ({len} 字节):");
     for (i, chunk) in tx_frame.chunks(16).enumerate() {
         print!("  {:02X}: ", i * 16);
         for b in chunk {
@@ -207,9 +208,11 @@ fn test_end_to_end_ccsds_space_packet() {
 
     // 然后接收实际的帧数据
     rx_buffer.append(&tx_frame);
-    println!("接收完整帧: {} 字节", tx_frame.len());
+    let len = tx_frame.len();
+    println!("接收完整帧: {len} 字节");
 
-    println!("当前缓冲区总长度: {} 字节", rx_buffer.len());
+    let buf_len = rx_buffer.len();
+    println!("当前缓冲区总长度: {buf_len} 字节");
 
     // 对于CCSDS Space Packet，我们可以直接从缓冲区提取（假设已经识别出起始位置）
     // 实际场景中可能需要同步字搜索
@@ -247,7 +250,7 @@ fn test_end_to_end_ccsds_space_packet() {
     println!("\n提取的字段值:");
     for field_name in rx_disassembler.get_field_names() {
         if let Some(value) = fields.get(field_name) {
-            print!("  {}: ", field_name);
+            print!("  {field_name}: ");
             for b in value {
                 print!("{b:02X} ");
             }
@@ -382,7 +385,8 @@ fn test_end_to_end_with_sync_marker() {
     rx_buffer.append(&[0xFF, 0xFF, 0x00]); // 噪声
     rx_buffer.append(&tx_frame);
 
-    println!("缓冲区长度: {} 字节", rx_buffer.len());
+    let buf_len = rx_buffer.len();
+    println!("缓冲区长度: {buf_len} 字节");
 
     // 搜索同步字
     let sync_pos = rx_buffer.find_sync_marker().unwrap();

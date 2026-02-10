@@ -68,8 +68,8 @@ impl FrameSynchronizer {
         // 滑动窗口搜索
         for i in 0..=(buffer.len() - marker.len()) {
             let mut matched = true;
-            for j in 0..marker.len() {
-                if buffer.get(i + j) != Some(&marker[j]) {
+            for (j, &marker_byte) in marker.iter().enumerate() {
+                if buffer.get(i + j) != Some(&marker_byte) {
                     matched = false;
                     break;
                 }
@@ -96,10 +96,8 @@ impl FrameSynchronizer {
         // 带掩码的滑动窗口搜索
         for i in 0..=(buffer.len() - pattern.len()) {
             let mut matched = true;
-            for j in 0..pattern.len() {
+            for (j, (&pattern_byte, &mask_byte)) in pattern.iter().zip(mask.iter()).enumerate() {
                 let buffer_byte = *buffer.get(i + j)?;
-                let pattern_byte = pattern[j];
-                let mask_byte = mask[j];
 
                 if (buffer_byte & mask_byte) != (pattern_byte & mask_byte) {
                     matched = false;
@@ -121,11 +119,7 @@ impl FrameSynchronizer {
 
     /// 更新锁定状态（基于连续检测）
     pub fn update_lock_state(&mut self, sync_found: bool) {
-        if sync_found {
-            self.is_locked = true;
-        } else {
-            self.is_locked = false;
-        }
+        self.is_locked = sync_found;
     }
 }
 
