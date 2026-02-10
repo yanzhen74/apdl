@@ -17,7 +17,7 @@ pub struct ChannelState {
     /// 丢失的帧总数
     pub lost_frame_count: u64,
     /// 最后接收的序列号
-    pub last_sequence: Option<u16>,
+    pub last_sequence: Option<u32>,
     /// 通道是否激活
     pub is_active: bool,
     /// 最后接收时间戳（可选）
@@ -38,7 +38,7 @@ impl ChannelState {
     }
 
     /// 更新接收统计
-    pub fn update_receive(&mut self, sequence: u16, lost_count: u64) {
+    pub fn update_receive(&mut self, sequence: u32, lost_count: u64) {
         self.frame_count += 1;
         self.lost_frame_count += lost_count;
         self.last_sequence = Some(sequence);
@@ -97,7 +97,7 @@ impl Demultiplexer {
     pub fn demultiplex(
         &mut self,
         channel_id: u16,
-        sequence: u16,
+        sequence: u32,
         frame: Vec<u8>,
     ) -> Result<ValidationResult, ProtocolError> {
         // 获取或创建通道队列
@@ -289,7 +289,7 @@ mod tests {
         let mut demux = Demultiplexer::new(100);
 
         // 发送多个帧
-        for i in 0..10u16 {
+        for i in 0..10u32 {
             demux.demultiplex(0, i, vec![i as u8]).unwrap();
         }
 

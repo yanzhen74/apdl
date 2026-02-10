@@ -203,7 +203,7 @@ fn test_complete_demux_workflow() {
 
     // VCID 0: 正常序列，无丢帧
     println!("\n1. VCID 0 - 正常序列");
-    for seq in 0..5u16 {
+    for seq in 0..5u32 {
         demux
             .demultiplex(0, seq, vec![0xA0, seq as u8])
             .unwrap();

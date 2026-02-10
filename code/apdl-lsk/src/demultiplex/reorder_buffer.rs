@@ -9,13 +9,13 @@ use std::collections::BTreeMap;
 /// 使用BTreeMap自动按序列号排序，提供滑动窗口管理
 pub struct ReorderBuffer {
     /// 缓冲区（sequence -> PDU）
-    buffer: BTreeMap<u16, Vec<u8>>,
+    buffer: BTreeMap<u32, Vec<u8>>,
     /// 下一个期望的序列号
-    next_expected: u16,
+    next_expected: u32,
     /// 滑动窗口大小
     window_size: usize,
     /// 序列号模数
-    modulo: u16,
+    modulo: u32,
     /// 接收统计
     stats: ReorderStatistics,
 }
@@ -49,7 +49,7 @@ impl ReorderBuffer {
     /// // 创建窗口大小为16的重排缓冲区
     /// let buffer = ReorderBuffer::new(16, 0x4000);
     /// ```
-    pub fn new(window_size: usize, modulo: u16) -> Self {
+    pub fn new(window_size: usize, modulo: u32) -> Self {
         Self {
             buffer: BTreeMap::new(),
             next_expected: 0,
@@ -86,7 +86,7 @@ impl ReorderBuffer {
     /// let output = buffer.insert(1, vec![0x02]);
     /// assert_eq!(output.len(), 2); // 输出1和2
     /// ```
-    pub fn insert(&mut self, sequence: u16, pdu: Vec<u8>) -> Vec<Vec<u8>> {
+    pub fn insert(&mut self, sequence: u32, pdu: Vec<u8>) -> Vec<Vec<u8>> {
         self.stats.total_received += 1;
 
         // 检查是否是期望的序列号
@@ -131,13 +131,13 @@ impl ReorderBuffer {
     }
 
     /// 检查序列号是否在窗口范围内
-    fn is_in_window(&self, sequence: u16) -> bool {
+    fn is_in_window(&self, sequence: u32) -> bool {
         let distance = self.calculate_distance(self.next_expected, sequence);
         distance < self.window_size
     }
 
     /// 计算两个序列号之间的距离（考虑回绕）
-    fn calculate_distance(&self, from: u16, to: u16) -> usize {
+    fn calculate_distance(&self, from: u32, to: u32) -> usize {
         if to >= from {
             (to - from) as usize
         } else {
@@ -147,7 +147,7 @@ impl ReorderBuffer {
     }
 
     /// 递增序列号（处理回绕）
-    fn increment_sequence(&self, seq: u16) -> u16 {
+    fn increment_sequence(&self, seq: u32) -> u32 {
         (seq + 1) % self.modulo
     }
 
@@ -182,7 +182,7 @@ impl ReorderBuffer {
     }
 
     /// 设置下一个期望的序列号
-    pub fn set_next_expected(&mut self, sequence: u16) {
+    pub fn set_next_expected(&mut self, sequence: u32) {
         self.next_expected = sequence;
     }
 

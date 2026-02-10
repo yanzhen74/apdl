@@ -22,9 +22,9 @@ pub enum ValidationResult {
 /// 用于检测CCSDS协议中的帧丢失和序列号异常
 pub struct SequenceValidator {
     /// 各通道的最后序列号（channel_id -> last_sequence）
-    last_sequence: HashMap<u16, u16>,
+    last_sequence: HashMap<u16, u32>,
     /// 序列号模数（如CCSDS的14位序列号，模数为0x4000）
-    modulo: u16,
+    modulo: u32,
 }
 
 impl SequenceValidator {
@@ -40,7 +40,7 @@ impl SequenceValidator {
     /// // CCSDS Space Packet使用14位序列号
     /// let validator = SequenceValidator::new(0x4000);
     /// ```
-    pub fn new(modulo: u16) -> Self {
+    pub fn new(modulo: u32) -> Self {
         Self {
             last_sequence: HashMap::new(),
             modulo,
@@ -74,7 +74,7 @@ impl SequenceValidator {
     /// let result = validator.validate(0, 3);
     /// assert!(matches!(result, ValidationResult::FrameLost(1)));
     /// ```
-    pub fn validate(&mut self, channel_id: u16, sequence: u16) -> ValidationResult {
+    pub fn validate(&mut self, channel_id: u16, sequence: u32) -> ValidationResult {
         // 获取该通道的最后序列号
         if let Some(&last_seq) = self.last_sequence.get(&channel_id) {
             // 计算期望的序列号
@@ -114,7 +114,7 @@ impl SequenceValidator {
     ///
     /// # 返回
     /// - 丢失的帧数
-    fn calculate_lost_count(&self, last_seq: u16, current_seq: u16) -> usize {
+    fn calculate_lost_count(&self, last_seq: u32, current_seq: u32) -> usize {
         if current_seq > last_seq {
             // 正常情况：current > last
             (current_seq - last_seq - 1) as usize
@@ -134,7 +134,7 @@ impl SequenceValidator {
     }
 
     /// 获取指定通道的最后序列号
-    pub fn get_last_sequence(&self, channel_id: u16) -> Option<u16> {
+    pub fn get_last_sequence(&self, channel_id: u16) -> Option<u32> {
         self.last_sequence.get(&channel_id).copied()
     }
 
