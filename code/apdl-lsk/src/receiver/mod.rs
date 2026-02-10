@@ -2,6 +2,7 @@
 //!
 //! 提供流式数据接收、帧同步和边界识别功能
 
+pub mod batch;
 pub mod buffer;
 pub mod sync;
 
