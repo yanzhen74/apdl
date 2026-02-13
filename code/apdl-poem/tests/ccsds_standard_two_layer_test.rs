@@ -11,7 +11,10 @@
 //! 3. 父包字段映射和数据嵌入
 //! 4. 语义规则验证（序列控制、校验和、边界检测）
 //! 5. 完整的两层封装流程
+//!
+//! 注意：本测试使用DataGenerator生成测试数据，替代硬编码值
 
+use apdl_lsk::data_generator::TestDataGenerator;
 use apdl_poem::{
     dsl::json_parser::JsonParser,
     standard_units::{
@@ -161,17 +164,14 @@ fn test_ccsds_standard_two_layer_integration() {
         .expect("Failed to set pkt_len");
     println!("  pkt_len: 0x000F (15, 表示16字节数据)");
 
-    // pkt_data: 16字节有效载荷
-    let payload_data = [
-        0xDE, 0xAD, 0xBE, 0xEF, // 死牛肉
-        0xCA, 0xFE, 0xBA, 0xBE, // 咖啡宝贝
-        0x12, 0x34, 0x56, 0x78, // 测试数据
-        0x9A, 0xBC, 0xDE, 0xF0, // 更多数据
-    ];
+    // pkt_data: 16字节有效载荷（使用DataGenerator生成，替代硬编码）
+    let test_data_gen = TestDataGenerator::with_seed(42); // 使用固定种子确保可重复
+    let payload_data = test_data_gen.mixed_pattern(); // 生成经典的测试模式
     child_assembler
         .set_field_value("pkt_data", &payload_data)
         .expect("Failed to set pkt_data");
-    println!("  pkt_data: 16字节载荷数据");
+    println!("  pkt_data: 16字节载荷数据（DataGenerator生成）");
+    println!("    数据内容: {:02X?}", &payload_data[..8]);
 
     // 7. 组装子包
     let child_frame = child_assembler

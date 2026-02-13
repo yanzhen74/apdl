@@ -13,8 +13,9 @@ pub mod traffic_generator;
 
 pub use channel::Channel;
 pub use data_generator::{
-    BoundaryValueStrategy, ConstraintHandler, ConstraintValidator, DataGenerator, DataImporter,
-    FixedStrategy, GenerationStrategy, RandomStrategy, SequentialStrategy,
+    patterns, BoundaryValueStrategy, ConstraintHandler, ConstraintValidator, DataGenerator,
+    DataImporter, FixedStrategy, GenerationStrategy, RandomStrategy, SequentialStrategy,
+    TestDataGenerator,
 };
 pub use demultiplex::{
     ChannelState, Demultiplexer, ReorderBuffer, SequenceValidator, ValidationResult,

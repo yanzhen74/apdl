@@ -1,5 +1,8 @@
 //! 集成测试：验证DSL解析器、语义规则处理和帧组装器的协同工作
+//!
+//! 注意：本测试使用DataGenerator生成测试数据，替代硬编码值
 
+use apdl_lsk::data_generator::TestDataGenerator;
 use apdl_poem::DslParserImpl;
 use apdl_poem::FrameAssembler;
 
@@ -76,6 +79,11 @@ fn test_dsl_parser_semantic_rules_frame_assembler_integration() {
 
     // 3. 测试字段值设置和帧组装
     println!("3. 测试字段值设置和帧组装...");
+    
+    // 使用DataGenerator生成测试数据（替代硬编码）
+    let test_data_gen = TestDataGenerator::with_seed(12345);
+    let data_field_value = test_data_gen.deadbeef_pattern(1); // 生成4字节死牛肉模式
+    
     assembler
         .set_field_value("sync_flag", &[0xEB, 0x90])
         .unwrap();
@@ -83,9 +91,10 @@ fn test_dsl_parser_semantic_rules_frame_assembler_integration() {
     assembler.set_field_value("sc_id", &[0x00, 0x01]).unwrap(); // SC ID = 1
     assembler.set_field_value("vc_id", &[0x05]).unwrap(); // VC ID = 5
     assembler
-        .set_field_value("data_field", &[0xDE, 0xAD, 0xBE, 0xEF])
-        .unwrap(); // 数据
+        .set_field_value("data_field", &data_field_value)
+        .unwrap(); // 使用生成的数据
     assembler.set_field_value("fecf", &[0xAA, 0xBB]).unwrap(); // FCEF
+    println!("   数据字段值（DataGenerator生成）: {:02X?}", data_field_value);
 
     // 验证字段值是否正确设置
     let sync_flag_value = assembler.get_field_value("sync_flag").unwrap();
@@ -96,12 +105,11 @@ fn test_dsl_parser_semantic_rules_frame_assembler_integration() {
         "sync_flag值应为[0xEB, 0x90]"
     );
 
-    let data_field_value = assembler.get_field_value("data_field").unwrap();
-    println!("   data_field value: {data_field_value:?}");
+    let data_field_value_check = assembler.get_field_value("data_field").unwrap();
+    println!("   data_field value: {data_field_value_check:?}");
     assert_eq!(
-        data_field_value,
-        vec![0xDE, 0xAD, 0xBE, 0xEF],
-        "data_field值应为[0xDE, 0xAD, 0xBE, 0xEF]"
+        data_field_value_check, data_field_value,
+        "data_field值应与生成值一致"
     );
 
     // 执行帧组装

@@ -23,8 +23,10 @@ pub mod constraints;
 pub mod core;
 pub mod custom_import;
 pub mod strategies;
+pub mod test_helpers;
 
 pub use constraints::{ConstraintHandler, ConstraintValidator};
 pub use core::DataGenerator;
 pub use custom_import::DataImporter;
 pub use strategies::{BoundaryValueStrategy, FixedStrategy, GenerationStrategy, RandomStrategy, SequentialStrategy};
+pub use test_helpers::{patterns, TestDataGenerator};
