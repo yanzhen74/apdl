@@ -7,6 +7,8 @@ edition = "2021"
 apdl-core = { path = "../apdl-core" }
 tokio = { version = "1.0", features = ["full"] }
 bytes = "1.0"
+rand = "0.10.0"
+base64 = "0.22"
 
 [dev-dependencies]
 apdl-poem = { path = "../apdl-poem" }
