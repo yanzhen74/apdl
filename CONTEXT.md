@@ -130,26 +130,39 @@ APDL (APDS Protocol Definition Language) 是一个面向航天领域的协议定
   - `merge_segments()`: 合并多段数据
   - `split_into_chunks()`: 分割数据为固定大小块
 
+- **TestDataGenerator测试辅助模块**（test_helpers.rs）
+  - 为测试用例提供便捷的数据生成API
+  - `random_bytes(n)` - 生成n字节随机数据
+  - `sequential_bytes(n)` - 生成n字节顺序数据
+  - `deadbeef_pattern(n)` - 生成n次死牛肉模式
+  - `cafebabe_pattern(n)` - 生成n次咖啡宝贝模式
+  - `mixed_pattern()` - 生成16字节混合测试模式
+  - `from_hex(str)` - 从十六进制字符串导入
+  - `with_seed(seed)` - 使用固定种子确保可重复测试
+
 - **使用示例**
 ```rust
 use apdl_lsk::data_generator::{DataGenerator, GenerationStrategy};
+use apdl_lsk::data_generator::TestDataGenerator;
 
-// 从协议模型创建生成器
+// 基础用法：从协议模型创建生成器
 let syntax_units = vec![/* SyntaxUnit定义 */];
 let mut generator = DataGenerator::new(&syntax_units);
-
-// 设置生成策略
 generator.set_strategy(GenerationStrategy::Random);
-
-// 生成单个字段
 let version = generator.generate_field("version");
 
-// 生成完整帧
-let frame = generator.generate_frame();
-
-// 批量生成
-let frames = generator.generate_batch(100);
+// 测试辅助用法：快速生成测试数据
+let test_gen = TestDataGenerator::with_seed(42);
+let payload = test_gen.mixed_pattern(); // 16字节混合模式
+let random_data = test_gen.random_bytes(32);
+let hex_data = test_gen.from_hex("DEADBEEF").unwrap();
 ```
+
+- **集成成果**
+  - `ccsds_standard_two_layer_test.rs`：payload_data改为DataGenerator生成
+  - `integration_test.rs`：data_field改为DataGenerator生成
+  - 测试用例从硬编码：`[0xDE, 0xAD, 0xBE, 0xEF]`
+  - 改为模型驱动：`test_gen.mixed_pattern()` 或 `test_gen.deadbeef_pattern(1)`
 
 **阶段4：性能优化和批量处理** ✅
 - **性能基准测试框架**
@@ -179,8 +192,9 @@ let frames = generator.generate_batch(100);
   - 直接提取应用数据测试
   - 批量处理功能测试（4个测试用例）
   - 性能基准测试（4个测试用例）
-  - 数据模拟生成测试（40个测试用例）
-  - 总计：**111个测试用例**，覆盖率100%
+  - 数据模拟生成测试（47个测试用例，包含TestDataGenerator）
+  - DataGenerator集成测试（2个测试文件已集成）
+  - 总计：**200个测试用例**，覆盖率100%
 
 #### 1. 基础 DSL 语法
 - **字段定义**: 支持 `field`, `type`, `length`, `scope`, `cover` 等基础语法
