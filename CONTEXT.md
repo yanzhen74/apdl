@@ -101,6 +101,56 @@ APDL (APDS Protocol Definition Language) 是一个面向航天领域的协议定
 - `extract_payload()`: 提取指定层的净荷数据
 - `extract_application_data()`: 直接提取应用层数据（跳过中间层细节）
 
+**阶段5：数据模拟生成模块 (FR-3.4.1)** ✅
+- **DataGenerator**: 数据生成器核心
+  - 基于SyntaxUnit模型定义自动生成测试数据
+  - 支持四种生成策略：Random/Sequential/Fixed/BoundaryValues
+  - 支持字段级和帧级数据生成
+  - 支持批量生成和种子设置（可重复测试）
+  - 单元测试覆盖率100%（10个测试用例全部通过）
+
+- **生成策略**（strategies.rs）
+  - `RandomStrategy`: 随机数据生成（基于StdRng）
+  - `SequentialStrategy`: 顺序递增生成（支持多字段独立计数）
+  - `FixedStrategy`: 固定值生成
+  - `BoundaryValueStrategy`: 边界值生成（用于边界条件测试）
+
+- **约束处理**（constraints.rs）
+  - `ConstraintHandler`: 应用约束到生成值
+  - `ConstraintValidator`: 验证值是否符合约束
+  - 支持Range/FixedValue/Enum三种约束类型
+  - 约束优先级：FixedValue > Range > Enum
+
+- **自定义数据导入**（custom_import.rs）
+  - `import_from_file()`: 从二进制文件导入
+  - `import_from_hex()`: 从十六进制字符串导入（支持多种格式）
+  - `import_from_text()`: 从文本数据导入（UTF-8编码）
+  - `import_from_base64()`: 从Base64字符串导入
+  - `adjust_length()`: 调整数据长度（截断或填充）
+  - `merge_segments()`: 合并多段数据
+  - `split_into_chunks()`: 分割数据为固定大小块
+
+- **使用示例**
+```rust
+use apdl_lsk::data_generator::{DataGenerator, GenerationStrategy};
+
+// 从协议模型创建生成器
+let syntax_units = vec![/* SyntaxUnit定义 */];
+let mut generator = DataGenerator::new(&syntax_units);
+
+// 设置生成策略
+generator.set_strategy(GenerationStrategy::Random);
+
+// 生成单个字段
+let version = generator.generate_field("version");
+
+// 生成完整帧
+let frame = generator.generate_frame();
+
+// 批量生成
+let frames = generator.generate_batch(100);
+```
+
 **阶段4：性能优化和批量处理** ✅
 - **性能基准测试框架**
   - `benches/performance_benchmark.rs`：完整的性能测试套件
@@ -129,7 +179,8 @@ APDL (APDS Protocol Definition Language) 是一个面向航天领域的协议定
   - 直接提取应用数据测试
   - 批量处理功能测试（4个测试用例）
   - 性能基准测试（4个测试用例）
-  - 总计：**71个测试用例**，覆盖率100%
+  - 数据模拟生成测试（40个测试用例）
+  - 总计：**111个测试用例**，覆盖率100%
 
 #### 1. 基础 DSL 语法
 - **字段定义**: 支持 `field`, `type`, `length`, `scope`, `cover` 等基础语法
