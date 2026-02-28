@@ -50,8 +50,20 @@ function App() {
   // 验证协议定义
   async function handleValidate() {
     try {
+      // 检查编辑器内容
+      if (!editorValue || editorValue.trim() === '') {
+        setMessage("❌ 编辑器内容为空，请先加载或输入协议定义");
+        return;
+      }
+      
+      console.log("Editor content:", editorValue.substring(0, 100) + "...");
+      
       const protocol = JSON.parse(editorValue);
+      console.log("Parsed protocol:", protocol);
+      
       const result = await invoke<ValidationResult>("validate_protocol", { protocol });
+      console.log("Validation result:", result);
+      
       setValidationResult(result);
       
       if (result.valid) {
@@ -60,6 +72,7 @@ function App() {
         setMessage(`❌ 验证失败，发现 ${result.errors.length} 个错误`);
       }
     } catch (error) {
+      console.error("Validation error:", error);
       setMessage(`验证失败: ${error}`);
     }
   }

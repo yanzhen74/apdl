@@ -39,10 +39,12 @@ fn save_protocol(file_path: String, content: serde_json::Value) -> Result<(), St
 // 验证协议定义是否符合Schema
 #[tauri::command]
 fn validate_protocol(protocol: serde_json::Value) -> Result<ValidationResult, String> {
-    // 加载Schema文件
-    let schema_path = PathBuf::from("schema/apdl-protocol-schema-v1.json");
+    // 加载Schema文件 - 使用相对于src-tauri目录的路径
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let schema_path = manifest_dir.join("schema/apdl-protocol-schema-v1.json");
+    
     let schema_content = fs::read_to_string(&schema_path)
-        .map_err(|e| format!("读取Schema失败: {}", e))?;
+        .map_err(|e| format!("读取Schema失败 (路径: {}): {}", schema_path.display(), e))?;
     
     let schema_json: serde_json::Value = serde_json::from_str(&schema_content)
         .map_err(|e| format!("解析Schema失败: {}", e))?;
@@ -80,9 +82,11 @@ fn validate_protocol(protocol: serde_json::Value) -> Result<ValidationResult, St
 // 获取Schema定义（供前端使用）
 #[tauri::command]
 fn get_schema() -> Result<serde_json::Value, String> {
-    let schema_path = PathBuf::from("schema/apdl-protocol-schema-v1.json");
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let schema_path = manifest_dir.join("schema/apdl-protocol-schema-v1.json");
+    
     fs::read_to_string(&schema_path)
-        .map_err(|e| format!("读取Schema失败: {}", e))
+        .map_err(|e| format!("读取Schema失败 (路径: {}): {}", schema_path.display(), e))
         .and_then(|content| {
             serde_json::from_str(&content)
                 .map_err(|e| format!("解析Schema失败: {}", e))
