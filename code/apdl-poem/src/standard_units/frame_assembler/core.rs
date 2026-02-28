@@ -2,15 +2,8 @@
 //!
 //! 包含 FrameAssembler 结构体定义和基础功能方法
 
-use apdl_core::{LengthUnit, ProtocolError, SemanticRule, SyntaxUnit, UnitType};
+use apdl_core::{BitOrder, ByteOrder, LengthUnit, PackUnpackSpec, ProtocolError, SemanticRule, SyntaxUnit, UnitType};
 use std::collections::HashMap;
-
-/// 字节序类型
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ByteOrder {
-    BigEndian,
-    LittleEndian,
-}
 
 /// 协议帧组装器
 #[derive(Clone)]
@@ -24,6 +17,10 @@ pub struct FrameAssembler {
     pub bit_field_values: HashMap<String, u8>,
     // 添加字段字节序映射
     pub field_byte_orders: HashMap<String, ByteOrder>,
+    // 添加字段位序映射
+    pub field_bit_orders: HashMap<String, BitOrder>,
+    // 包级别的打包/拆包规范
+    pub pack_unpack_spec: Option<PackUnpackSpec>,
 }
 
 impl Default for FrameAssembler {
@@ -41,13 +38,62 @@ impl FrameAssembler {
             field_values: HashMap::new(),
             bit_field_values: HashMap::new(),
             field_byte_orders: HashMap::new(),
+            field_bit_orders: HashMap::new(),
+            pack_unpack_spec: None,
         }
+    }
+
+    /// 从 PackUnpackSpec 创建 FrameAssembler
+    pub fn from_spec(spec: PackUnpackSpec) -> Self {
+        let mut assembler = Self::new();
+        assembler.pack_unpack_spec = Some(spec);
+        assembler
+    }
+
+    /// 设置包级别的打包/拆包规范
+    pub fn set_pack_unpack_spec(&mut self, spec: PackUnpackSpec) {
+        self.pack_unpack_spec = Some(spec);
+    }
+
+    /// 获取默认的字节序（从包级别配置或默认大端）
+    fn default_byte_order(&self) -> ByteOrder {
+        self.pack_unpack_spec
+            .as_ref()
+            .map(|spec| spec.byte_order)
+            .unwrap_or(ByteOrder::BigEndian)
+    }
+
+    /// 获取默认的位序（从包级别配置或默认 MSB First）
+    fn default_bit_order(&self) -> BitOrder {
+        self.pack_unpack_spec
+            .as_ref()
+            .map(|spec| spec.bit_order)
+            .unwrap_or(BitOrder::MsbFirst)
     }
 
     /// 添加字段定义
     pub fn add_field(&mut self, field: SyntaxUnit) {
         let field_name = field.field_id.clone();
         let index = self.fields.len();
+
+        // 如果字段有 pack_unpack_spec，提取字节序和位序配置
+        if let Some(ref spec) = field.pack_unpack_spec {
+            self.field_byte_orders.insert(field_name.clone(), spec.byte_order);
+            self.field_bit_orders.insert(field_name.clone(), spec.bit_order);
+
+            // 处理 field_level_specs 中的配置
+            for field_spec in &spec.field_level_specs {
+                if field_spec.field_id == field_name {
+                    if let Some(byte_order) = field_spec.byte_order {
+                        self.field_byte_orders.insert(field_name.clone(), byte_order);
+                    }
+                    if let Some(bit_order) = field_spec.bit_order {
+                        self.field_bit_orders.insert(field_name.clone(), bit_order);
+                    }
+                }
+            }
+        }
+
         self.fields.push(field);
         self.field_index.insert(field_name, index);
     }
@@ -64,13 +110,29 @@ impl FrameAssembler {
             .insert(clean_field_name.to_string(), byte_order);
     }
 
-    /// 获取字段字节序，如果没有设置则返回默认值（大端）
+    /// 获取字段字节序，如果没有设置则返回默认值（从包配置或大端）
     pub fn get_field_byte_order(&self, field_name: &str) -> ByteOrder {
         let clean_field_name = field_name.trim_start_matches("field: ").trim();
         self.field_byte_orders
             .get(clean_field_name)
             .copied()
-            .unwrap_or(ByteOrder::BigEndian) // 默认使用大端字节序
+            .unwrap_or_else(|| self.default_byte_order())
+    }
+
+    /// 设置字段位序
+    pub fn set_field_bit_order(&mut self, field_name: &str, bit_order: BitOrder) {
+        let clean_field_name = field_name.trim_start_matches("field: ").trim();
+        self.field_bit_orders
+            .insert(clean_field_name.to_string(), bit_order);
+    }
+
+    /// 获取字段位序，如果没有设置则返回默认值（从包配置或 MSB First）
+    pub fn get_field_bit_order(&self, field_name: &str) -> BitOrder {
+        let clean_field_name = field_name.trim_start_matches("field: ").trim();
+        self.field_bit_orders
+            .get(clean_field_name)
+            .copied()
+            .unwrap_or_else(|| self.default_bit_order())
     }
 
     /// 转换字段值以供内部存储（统一使用大端字节序）

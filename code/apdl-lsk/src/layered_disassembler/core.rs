@@ -225,6 +225,7 @@ mod tests {
             alg: None,
             associate: vec![],
             desc: "Header".to_string(),
+            pack_unpack_spec: None,
         };
 
         disassembler.add_field(header_field);
@@ -244,6 +245,7 @@ mod tests {
                 alg: None,
                 associate: vec![],
                 desc: "Payload".to_string(),
+                pack_unpack_spec: None,
             };
             disassembler.add_field(payload_field);
             Some(field_name.to_string())

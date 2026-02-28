@@ -23,6 +23,7 @@ fn create_tm_frame_disassembler() -> FrameDisassembler {
         alg: None,
         associate: vec![],
         desc: "TM Version".to_string(),
+        pack_unpack_spec: None,
     };
 
     let scid_field = SyntaxUnit {
@@ -38,6 +39,7 @@ fn create_tm_frame_disassembler() -> FrameDisassembler {
         alg: None,
         associate: vec![],
         desc: "Spacecraft ID".to_string(),
+        pack_unpack_spec: None,
     };
 
     let vcid_field = SyntaxUnit {
@@ -53,6 +55,7 @@ fn create_tm_frame_disassembler() -> FrameDisassembler {
         alg: None,
         associate: vec![],
         desc: "Virtual Channel ID".to_string(),
+        pack_unpack_spec: None,
     };
 
     let frame_seq_field = SyntaxUnit {
@@ -68,6 +71,7 @@ fn create_tm_frame_disassembler() -> FrameDisassembler {
         alg: None,
         associate: vec![],
         desc: "Frame Sequence Number".to_string(),
+        pack_unpack_spec: None,
     };
 
     // TM数据字段（净荷）
@@ -84,6 +88,7 @@ fn create_tm_frame_disassembler() -> FrameDisassembler {
         alg: None,
         associate: vec![],
         desc: "TM Data Field".to_string(),
+        pack_unpack_spec: None,
     };
 
     disassembler.add_field(version_field);
@@ -113,6 +118,7 @@ fn create_space_packet_disassembler() -> FrameDisassembler {
         alg: None,
         associate: vec![],
         desc: "Packet Version".to_string(),
+        pack_unpack_spec: None,
     };
 
     let pkt_type_field = SyntaxUnit {
@@ -128,6 +134,7 @@ fn create_space_packet_disassembler() -> FrameDisassembler {
         alg: None,
         associate: vec![],
         desc: "Packet Type".to_string(),
+        pack_unpack_spec: None,
     };
 
     let sec_hdr_flag_field = SyntaxUnit {
@@ -143,6 +150,7 @@ fn create_space_packet_disassembler() -> FrameDisassembler {
         alg: None,
         associate: vec![],
         desc: "Secondary Header Flag".to_string(),
+        pack_unpack_spec: None,
     };
 
     let apid_field = SyntaxUnit {
@@ -158,6 +166,7 @@ fn create_space_packet_disassembler() -> FrameDisassembler {
         alg: None,
         associate: vec![],
         desc: "Application Process ID".to_string(),
+        pack_unpack_spec: None,
     };
 
     let seq_flags_field = SyntaxUnit {
@@ -173,6 +182,7 @@ fn create_space_packet_disassembler() -> FrameDisassembler {
         alg: None,
         associate: vec![],
         desc: "Sequence Flags".to_string(),
+        pack_unpack_spec: None,
     };
 
     let pkt_seq_cnt_field = SyntaxUnit {
@@ -188,6 +198,7 @@ fn create_space_packet_disassembler() -> FrameDisassembler {
         alg: None,
         associate: vec![],
         desc: "Packet Sequence Count".to_string(),
+        pack_unpack_spec: None,
     };
 
     let pkt_len_field = SyntaxUnit {
@@ -203,6 +214,7 @@ fn create_space_packet_disassembler() -> FrameDisassembler {
         alg: None,
         associate: vec![],
         desc: "Packet Length".to_string(),
+        pack_unpack_spec: None,
     };
 
     // 包数据（净荷）
@@ -219,6 +231,7 @@ fn create_space_packet_disassembler() -> FrameDisassembler {
         alg: None,
         associate: vec![],
         desc: "Packet Data".to_string(),
+        pack_unpack_spec: None,
     };
 
     disassembler.add_field(pkt_version_field);
@@ -340,6 +353,7 @@ fn test_three_layer_protocol_stack() {
         alg: None,
         associate: vec![],
         desc: "Outer Header".to_string(),
+        pack_unpack_spec: None,
     };
     let outer_payload = SyntaxUnit {
         field_id: "outer_payload".to_string(),
@@ -354,6 +368,7 @@ fn test_three_layer_protocol_stack() {
         alg: None,
         associate: vec![],
         desc: "Outer Payload".to_string(),
+        pack_unpack_spec: None,
     };
     outer_disassembler.add_field(outer_header);
     outer_disassembler.add_field(outer_payload);
@@ -379,6 +394,7 @@ fn test_three_layer_protocol_stack() {
         alg: None,
         associate: vec![],
         desc: "Middle Header".to_string(),
+        pack_unpack_spec: None,
     };
     let middle_payload = SyntaxUnit {
         field_id: "middle_payload".to_string(),
@@ -393,6 +409,7 @@ fn test_three_layer_protocol_stack() {
         alg: None,
         associate: vec![],
         desc: "Middle Payload".to_string(),
+        pack_unpack_spec: None,
     };
     middle_disassembler.add_field(middle_header);
     middle_disassembler.add_field(middle_payload);
@@ -418,6 +435,7 @@ fn test_three_layer_protocol_stack() {
         alg: None,
         associate: vec![],
         desc: "Inner Header".to_string(),
+        pack_unpack_spec: None,
     };
     let inner_data = SyntaxUnit {
         field_id: "inner_data".to_string(),
@@ -432,6 +450,7 @@ fn test_three_layer_protocol_stack() {
         alg: None,
         associate: vec![],
         desc: "Inner Data".to_string(),
+        pack_unpack_spec: None,
     };
     inner_disassembler.add_field(inner_header);
     inner_disassembler.add_field(inner_data);

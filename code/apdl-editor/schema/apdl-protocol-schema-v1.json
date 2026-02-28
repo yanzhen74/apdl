@@ -1,0 +1,675 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://apdl.org/schema/apdl-protocol-schema-v1.json",
+  "title": "APDL Protocol Definition Schema",
+  "description": "APDL协议定义Schema，支持协议元数据、语法单元、语义规则、帧结构、帧包关系和字段映射的定义",
+  "type": "object",
+  "required": ["protocol_meta", "syntax_units"],
+  "properties": {
+    "protocol_meta": {
+      "$ref": "#/definitions/ProtocolMeta"
+    },
+    "syntax_units": {
+      "$ref": "#/definitions/SyntaxUnits"
+    },
+    "frame_structure": {
+      "$ref": "#/definitions/FrameStructure"
+    },
+    "semantic_rules": {
+      "$ref": "#/definitions/SemanticRules"
+    },
+    "frame_packet_relationships": {
+      "type": "array",
+      "description": "帧包包含关系列表",
+      "items": {
+        "$ref": "#/definitions/FramePacketRelationship"
+      }
+    },
+    "field_mappings": {
+      "type": "array",
+      "description": "字段映射列表（连接器定义）",
+      "items": {
+        "$ref": "#/definitions/FieldMapping"
+      }
+    },
+    "protocol_hierarchy": {
+      "$ref": "#/definitions/ProtocolHierarchy"
+    }
+  },
+  "definitions": {
+    "ProtocolMeta": {
+      "type": "object",
+      "description": "协议元数据定义",
+      "required": ["protocol_id", "protocol_name", "version"],
+      "properties": {
+        "protocol_id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "description": "协议唯一标识符，大写字母开头，可包含大写字母、数字和下划线"
+        },
+        "protocol_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "协议显示名称"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "协议版本号，格式：主版本.次版本.修订版本"
+        },
+        "layer": {
+          "type": "string",
+          "enum": ["physical", "data_link", "network", "transport", "application"],
+          "description": "协议所在层级"
+        },
+        "base_standard": {
+          "type": "string",
+          "description": "基础标准参考，如CCSDS 732.0-B-1"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "协议描述"
+        },
+        "author": {
+          "type": "string",
+          "description": "协议定义作者"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "创建时间"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "更新时间"
+        }
+      }
+    },
+    "SyntaxUnits": {
+      "type": "array",
+      "description": "语法单元（字段）定义列表",
+      "items": {
+        "$ref": "#/definitions/SyntaxUnit"
+      }
+    },
+    "SyntaxUnit": {
+      "type": "object",
+      "description": "单个语法单元（字段）定义",
+      "required": ["field_id", "type"],
+      "properties": {
+        "field_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "字段唯一标识符，小写字母开头，可包含小写字母、数字和下划线"
+        },
+        "display_name": {
+          "type": "string",
+          "description": "字段显示名称"
+        },
+        "type": {
+          "$ref": "#/definitions/FieldType"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "字段长度（字节或位，取决于type）"
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["header", "data_area", "tail", "variable"],
+          "description": "字段所在范围"
+        },
+        "cover": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "覆盖的字段ID列表（用于校验和等）"
+        },
+        "constraint": {
+          "$ref": "#/definitions/Constraint"
+        },
+        "description": {
+          "type": "string",
+          "description": "字段描述"
+        },
+        "default_value": {
+          "type": "string",
+          "pattern": "^(0x[0-9A-Fa-f]+|\\d+|true|false)$",
+          "description": "默认值（十六进制或十进制）"
+        },
+        "pack_unpack_spec": {
+          "$ref": "#/definitions/PackUnpackSpec",
+          "description": "字段级别的打包/拆包规范，覆盖包级别的默认配置"
+        }
+      }
+    },
+    "FieldType": {
+      "type": "string",
+      "enum": [
+        "Uint8",
+        "Uint16",
+        "Uint32",
+        "Uint64",
+        "Int8",
+        "Int16",
+        "Int32",
+        "Int64",
+        "Float32",
+        "Float64",
+        "Bit",
+        "ByteArray",
+        "String",
+        "Boolean",
+        "Enum",
+        "Array"
+      ],
+      "description": "字段数据类型"
+    },
+    "Constraint": {
+      "type": "object",
+      "description": "字段约束定义",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["range", "enum", "pattern", "checksum", "reference"],
+          "description": "约束类型"
+        },
+        "min": {
+          "type": "number",
+          "description": "最小值（range类型）"
+        },
+        "max": {
+          "type": "number",
+          "description": "最大值（range类型）"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "枚举值列表（enum类型）"
+        },
+        "pattern": {
+          "type": "string",
+          "description": "正则表达式（pattern类型）"
+        },
+        "algorithm": {
+          "type": "string",
+          "description": "校验算法（checksum类型）"
+        },
+        "ref_field": {
+          "type": "string",
+          "description": "引用字段（reference类型）"
+        }
+      }
+    },
+    "FrameStructure": {
+      "type": "object",
+      "description": "帧结构定义",
+      "properties": {
+        "frame_header": {
+          "$ref": "#/definitions/FrameSection"
+        },
+        "frame_data_area": {
+          "$ref": "#/definitions/FrameSection"
+        },
+        "frame_tail": {
+          "$ref": "#/definitions/FrameSection"
+        }
+      }
+    },
+    "FrameSection": {
+      "type": "object",
+      "description": "帧区域定义（头、数据区、尾）",
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "包含的字段ID列表"
+        },
+        "min_length": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "最小长度（字节）"
+        },
+        "max_length": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "最大长度（字节）"
+        },
+        "variable_length": {
+          "type": "boolean",
+          "description": "是否为变长区域"
+        }
+      }
+    },
+    "SemanticRules": {
+      "type": "array",
+      "description": "语义规则列表",
+      "items": {
+        "$ref": "#/definitions/SemanticRule"
+      }
+    },
+    "SemanticRule": {
+      "type": "object",
+      "description": "语义规则定义",
+      "required": ["rule_type", "field"],
+      "properties": {
+        "rule_type": {
+          "type": "string",
+          "enum": [
+            "checksum_validation",
+            "sequence_control",
+            "header_pointer_resolution",
+            "constraint_validation",
+            "field_mapping",
+            "length_calculation",
+            "address_resolution",
+            "security",
+            "redundancy"
+          ],
+          "description": "规则类型"
+        },
+        "field": {
+          "type": "string",
+          "description": "规则应用的字段ID"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info"],
+          "default": "error",
+          "description": "规则违反时的严重程度"
+        },
+        "parameters": {
+          "type": "object",
+          "description": "规则特定参数"
+        },
+        "description": {
+          "type": "string",
+          "description": "规则描述"
+        }
+      }
+    },
+    "PackUnpackSpec": {
+      "type": "object",
+      "description": "打包/拆包规范，支持包级别和字段级别配置，允许混用不同策略",
+      "properties": {
+        "byte_order": {
+          "type": "string",
+          "enum": ["big_endian", "little_endian", "mixed"],
+          "default": "big_endian",
+          "description": "字节序：big_endian(大端)、little_endian(小端)、mixed(混用，需配合field_level_spec)"
+        },
+        "bit_order": {
+          "type": "string",
+          "enum": ["msb_first", "lsb_first", "mixed"],
+          "default": "msb_first",
+          "description": "位序：msb_first(高位在前)、lsb_first(低位在前)、mixed(混用)"
+        },
+        "alignment": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "description": "对齐字节数，1表示不对齐"
+        },
+        "padding_strategy": {
+          "type": "string",
+          "enum": ["zero", "one", "random", "none", "inherit"],
+          "default": "zero",
+          "description": "填充策略：inherit表示继承上层配置"
+        },
+        "field_level_specs": {
+          "type": "array",
+          "description": "字段级别的打包规范列表，用于混用场景",
+          "items": {
+            "$ref": "#/definitions/FieldPackSpec"
+          }
+        },
+        "inherit_from": {
+          "type": "string",
+          "description": "继承自其他协议或层的pack_unpack_spec引用"
+        }
+      }
+    },
+    "FieldPackSpec": {
+      "type": "object",
+      "description": "单个字段的打包规范，用于字段级别的混用配置",
+      "required": ["field_id"],
+      "properties": {
+        "field_id": {
+          "type": "string",
+          "description": "字段ID"
+        },
+        "byte_order": {
+          "type": "string",
+          "enum": ["big_endian", "little_endian"],
+          "description": "该字段的字节序，覆盖包级别配置"
+        },
+        "bit_order": {
+          "type": "string",
+          "enum": ["msb_first", "lsb_first"],
+          "description": "该字段的位序，覆盖包级别配置"
+        },
+        "bit_offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7,
+          "description": "位偏移量（0-7），用于非字节对齐的字段"
+        },
+        "packing_priority": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "打包优先级，数值越小优先级越高，用于确定字段打包顺序"
+        }
+      }
+    },
+    "FramePacketRelationship": {
+      "type": "object",
+      "description": "帧包包含关系定义",
+      "required": ["relationship_id", "relationship_type", "parent_frame", "child_packet"],
+      "properties": {
+        "relationship_id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "description": "关系唯一标识符"
+        },
+        "relationship_type": {
+          "type": "string",
+          "enum": ["direct_embed", "pointer_based", "stream_based", "multiplexed"],
+          "description": "包含关系类型"
+        },
+        "parent_frame": {
+          "type": "string",
+          "description": "父帧/容器协议ID"
+        },
+        "child_packet": {
+          "type": "string",
+          "description": "子包/被包含协议ID"
+        },
+        "placement_config": {
+          "$ref": "#/definitions/PlacementConfig"
+        },
+        "multiplexing_config": {
+          "$ref": "#/definitions/MultiplexingConfig"
+        },
+        "description": {
+          "type": "string",
+          "description": "关系描述"
+        }
+      }
+    },
+    "PlacementConfig": {
+      "type": "object",
+      "description": "数据放置配置",
+      "properties": {
+        "target_field": {
+          "type": "string",
+          "description": "在父帧中的放置字段"
+        },
+        "placement_strategy": {
+          "type": "string",
+          "enum": ["direct", "pointer_based", "stream"],
+          "description": "放置策略"
+        },
+        "header_pointers": {
+          "$ref": "#/definitions/HeaderPointerConfig"
+        },
+        "offset_expression": {
+          "type": "string",
+          "description": "偏移量计算公式"
+        }
+      }
+    },
+    "HeaderPointerConfig": {
+      "type": "object",
+      "description": "导头指针配置",
+      "properties": {
+        "master_pointer_field": {
+          "type": "string",
+          "description": "主导头指针字段"
+        },
+        "secondary_pointer_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "副导头指针字段列表"
+        },
+        "descriptor_field": {
+          "type": "string",
+          "description": "描述符字段"
+        }
+      }
+    },
+    "MultiplexingConfig": {
+      "type": "object",
+      "description": "复接配置",
+      "properties": {
+        "dispatch_field": {
+          "type": "string",
+          "description": "分发标志字段"
+        },
+        "max_channels": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "最大通道数"
+        },
+        "channel_selection": {
+          "type": "string",
+          "enum": ["round_robin", "priority", "weighted"],
+          "description": "通道选择策略"
+        }
+      }
+    },
+    "FieldMapping": {
+      "type": "object",
+      "description": "字段映射定义（连接器）",
+      "required": ["mapping_id", "source_protocol", "target_protocol", "mappings"],
+      "properties": {
+        "mapping_id": {
+          "type": "string",
+          "description": "映射唯一标识"
+        },
+        "source_protocol": {
+          "type": "string",
+          "description": "源协议ID"
+        },
+        "target_protocol": {
+          "type": "string",
+          "description": "目标协议ID"
+        },
+        "mappings": {
+          "type": "array",
+          "description": "字段映射列表",
+          "items": {
+            "$ref": "#/definitions/FieldMappingEntry"
+          }
+        },
+        "description": {
+          "type": "string",
+          "description": "映射描述"
+        }
+      }
+    },
+    "FieldMappingEntry": {
+      "type": "object",
+      "description": "单个字段映射条目",
+      "required": ["source_field", "target_field", "mapping_logic"],
+      "properties": {
+        "source_field": {
+          "type": "string",
+          "description": "源字段ID"
+        },
+        "target_field": {
+          "type": "string",
+          "description": "目标字段ID"
+        },
+        "mapping_logic": {
+          "type": "string",
+          "enum": [
+            "identity",
+            "hash_mod_64",
+            "hash_mod_2048",
+            "shift_right_8",
+            "mask_table",
+            "enum_mapping",
+            "custom"
+          ],
+          "description": "映射逻辑类型"
+        },
+        "mapping_params": {
+          "type": "object",
+          "description": "映射参数"
+        },
+        "default_value": {
+          "type": "string",
+          "description": "默认值（十六进制字符串）"
+        },
+        "enum_mappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EnumMappingEntry"
+          },
+          "description": "枚举值映射表"
+        },
+        "mask_mapping_table": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MaskMappingEntry"
+          },
+          "description": "掩码映射表"
+        }
+      }
+    },
+    "EnumMappingEntry": {
+      "type": "object",
+      "description": "枚举值映射条目",
+      "properties": {
+        "source_value": {
+          "type": "string",
+          "description": "源值"
+        },
+        "target_value": {
+          "type": "string",
+          "description": "目标值"
+        },
+        "description": {
+          "type": "string",
+          "description": "描述"
+        }
+      }
+    },
+    "MaskMappingEntry": {
+      "type": "object",
+      "description": "掩码映射条目",
+      "properties": {
+        "mask": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "掩码字节数组"
+        },
+        "src_masked": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "源掩码值"
+        },
+        "dst": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "目标值"
+        }
+      }
+    },
+    "ProtocolHierarchy": {
+      "type": "object",
+      "description": "协议层级结构定义",
+      "properties": {
+        "stack_id": {
+          "type": "string",
+          "description": "层级栈ID"
+        },
+        "stack_name": {
+          "type": "string",
+          "description": "层级栈名称"
+        },
+        "layers": {
+          "type": "array",
+          "description": "协议层级列表（从底层到顶层）",
+          "items": {
+            "$ref": "#/definitions/LayerDefinition"
+          }
+        },
+        "parallel_groups": {
+          "type": "array",
+          "description": "并列包组配置",
+          "items": {
+            "$ref": "#/definitions/ParallelGroup"
+          }
+        }
+      }
+    },
+    "LayerDefinition": {
+      "type": "object",
+      "description": "单个协议层级定义",
+      "properties": {
+        "layer_index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "层级索引，0为物理层"
+        },
+        "layer_name": {
+          "type": "string",
+          "enum": ["physical", "data_link", "network", "transport", "application"],
+          "description": "层级名称"
+        },
+        "protocol_id": {
+          "type": "string",
+          "description": "该层使用的协议ID"
+        },
+        "connector_to_upper": {
+          "type": "string",
+          "description": "到上层协议的连接器ID"
+        }
+      }
+    },
+    "ParallelGroup": {
+      "type": "object",
+      "description": "并列包组定义",
+      "properties": {
+        "group_id": {
+          "type": "string",
+          "description": "组ID"
+        },
+        "group_name": {
+          "type": "string",
+          "description": "组名称"
+        },
+        "member_protocols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "成员协议ID列表"
+        },
+        "multiplexing_strategy": {
+          "type": "string",
+          "enum": ["tdm", "sdm", "statistical"],
+          "description": "复接策略"
+        }
+      }
+    }
+  }
+}

@@ -61,6 +61,7 @@ impl TestDataGenerator {
                 alg: None,
                 associate: vec![],
                 desc: "Generic data field".to_string(),
+                pack_unpack_spec: None,
             },
             SyntaxUnit {
                 field_id: "sync_flag".to_string(),
@@ -75,6 +76,7 @@ impl TestDataGenerator {
                 alg: None,
                 associate: vec![],
                 desc: "Sync flag".to_string(),
+                pack_unpack_spec: None,
             },
             SyntaxUnit {
                 field_id: "version".to_string(),
@@ -89,6 +91,7 @@ impl TestDataGenerator {
                 alg: None,
                 associate: vec![],
                 desc: "Version field".to_string(),
+                pack_unpack_spec: None,
             },
             SyntaxUnit {
                 field_id: "payload".to_string(),
@@ -103,6 +106,7 @@ impl TestDataGenerator {
                 alg: None,
                 associate: vec![],
                 desc: "Payload data".to_string(),
+                pack_unpack_spec: None,
             },
         ]
     }

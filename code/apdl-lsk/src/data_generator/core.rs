@@ -342,6 +342,7 @@ mod tests {
             alg: None,
             associate: vec![],
             desc: "Test field".to_string(),
+            pack_unpack_spec: None,
         }
     }
 

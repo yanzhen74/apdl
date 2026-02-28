@@ -113,6 +113,7 @@ mod tests {
             alg: None,
             associate: vec![],
             desc: "Sequence Count Field".to_string(),
+            pack_unpack_spec: None,
         };
         assembler.add_field(seq_field);
 

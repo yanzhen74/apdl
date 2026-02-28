@@ -37,6 +37,7 @@ fn test_mpdu_comprehensive_scenario() {
         alg: None,
         associate: vec![],
         desc: "测试数据字段".to_string(),
+        pack_unpack_spec: None,
     };
 
     // 为每个子包创建不同长度的字段定义
@@ -218,6 +219,7 @@ fn create_parent_template_with_data_field_size(data_size: usize) -> FrameAssembl
         alg: None,
         associate: vec![],
         desc: "MPDU首导头指针".to_string(),
+        pack_unpack_spec: None,
     };
 
     // 添加数据字段
@@ -234,6 +236,7 @@ fn create_parent_template_with_data_field_size(data_size: usize) -> FrameAssembl
         alg: None,
         associate: vec![],
         desc: format!("数据字段 ({data_size} 字节)"),
+        pack_unpack_spec: None,
     };
 
     assembler.add_field(pointer_field);

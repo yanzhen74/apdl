@@ -21,6 +21,7 @@ fn test_bit_field_handling() {
         alg: None,
         associate: vec![],
         desc: "1-bit flag field".to_string(),
+        pack_unpack_spec: None,
     };
 
     let bit_field_2 = SyntaxUnit {
@@ -36,6 +37,7 @@ fn test_bit_field_handling() {
         alg: None,
         associate: vec![],
         desc: "1-bit flag field".to_string(),
+        pack_unpack_spec: None,
     };
 
     let bit_field_3 = SyntaxUnit {
@@ -51,6 +53,7 @@ fn test_bit_field_handling() {
         alg: None,
         associate: vec![],
         desc: "3-bit field".to_string(),
+        pack_unpack_spec: None,
     };
 
     // 2. 创建FrameAssembler并添加字段
@@ -104,6 +107,7 @@ fn test_bit_field_with_explicit_values() {
         alg: None,
         associate: vec![],
         desc: "4-bit control field".to_string(),
+        pack_unpack_spec: None,
     };
 
     let mut assembler = FrameAssembler::new();
@@ -141,6 +145,7 @@ fn test_mixed_bit_and_byte_fields() {
         alg: None,
         associate: vec![],
         desc: "1-bit flag 1".to_string(),
+        pack_unpack_spec: None,
     };
 
     let byte_field = SyntaxUnit {
@@ -156,6 +161,7 @@ fn test_mixed_bit_and_byte_fields() {
         alg: None,
         associate: vec![],
         desc: "1-byte data".to_string(),
+        pack_unpack_spec: None,
     };
 
     let bit_field_2 = SyntaxUnit {
@@ -171,6 +177,7 @@ fn test_mixed_bit_and_byte_fields() {
         alg: None,
         associate: vec![],
         desc: "2-bit flag 2".to_string(),
+        pack_unpack_spec: None,
     };
 
     let bit_field_3 = SyntaxUnit {
@@ -186,6 +193,7 @@ fn test_mixed_bit_and_byte_fields() {
         alg: None,
         associate: vec![],
         desc: "5-bit flag 3".to_string(),
+        pack_unpack_spec: None,
     };
 
     let mut assembler = FrameAssembler::new();

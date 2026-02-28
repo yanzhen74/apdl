@@ -8,6 +8,7 @@ members = [
     "apdl-pvpae",
     "apdl-iam",
     "apdl-app",
+    "apdl-editor",
 ]
 resolver = "2"
 

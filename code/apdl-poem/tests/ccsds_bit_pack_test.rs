@@ -26,6 +26,7 @@ fn test_ccsds_space_packet_bit_packing() {
         alg: None,
         associate: vec![],
         desc: "数据包版本号".to_string(),
+        pack_unpack_spec: None,
     };
 
     let pkt_type = SyntaxUnit {
@@ -41,6 +42,7 @@ fn test_ccsds_space_packet_bit_packing() {
         alg: None,
         associate: vec![],
         desc: "包类型".to_string(),
+        pack_unpack_spec: None,
     };
 
     let sec_hdr_flag = SyntaxUnit {
@@ -56,6 +58,7 @@ fn test_ccsds_space_packet_bit_packing() {
         alg: None,
         associate: vec![],
         desc: "二级头标志".to_string(),
+        pack_unpack_spec: None,
     };
 
     let apid = SyntaxUnit {
@@ -71,6 +74,7 @@ fn test_ccsds_space_packet_bit_packing() {
         alg: None,
         associate: vec![],
         desc: "应用进程ID".to_string(),
+        pack_unpack_spec: None,
     };
 
     let seq_flags = SyntaxUnit {
@@ -86,6 +90,7 @@ fn test_ccsds_space_packet_bit_packing() {
         alg: None,
         associate: vec![],
         desc: "序列标志".to_string(),
+        pack_unpack_spec: None,
     };
 
     let pkt_seq_cnt = SyntaxUnit {
@@ -101,6 +106,7 @@ fn test_ccsds_space_packet_bit_packing() {
         alg: None,
         associate: vec![],
         desc: "包序列计数".to_string(),
+        pack_unpack_spec: None,
     };
 
     let mut assembler = FrameAssembler::new();

@@ -35,6 +35,7 @@ fn test_end_to_end_ccsds_space_packet() {
         alg: None,
         associate: vec![],
         desc: "Packet Version".to_string(),
+        pack_unpack_spec: None,
     };
 
     let type_field = SyntaxUnit {
@@ -50,6 +51,7 @@ fn test_end_to_end_ccsds_space_packet() {
         alg: None,
         associate: vec![],
         desc: "Packet Type".to_string(),
+        pack_unpack_spec: None,
     };
 
     let sec_hdr_flag_field = SyntaxUnit {
@@ -65,6 +67,7 @@ fn test_end_to_end_ccsds_space_packet() {
         alg: None,
         associate: vec![],
         desc: "Secondary Header Flag".to_string(),
+        pack_unpack_spec: None,
     };
 
     let apid_field = SyntaxUnit {
@@ -80,6 +83,7 @@ fn test_end_to_end_ccsds_space_packet() {
         alg: None,
         associate: vec![],
         desc: "Application Process ID".to_string(),
+        pack_unpack_spec: None,
     };
 
     let seq_flags_field = SyntaxUnit {
@@ -95,6 +99,7 @@ fn test_end_to_end_ccsds_space_packet() {
         alg: None,
         associate: vec![],
         desc: "Sequence Flags".to_string(),
+        pack_unpack_spec: None,
     };
 
     let pkt_seq_cnt_field = SyntaxUnit {
@@ -110,6 +115,7 @@ fn test_end_to_end_ccsds_space_packet() {
         alg: None,
         associate: vec![],
         desc: "Packet Sequence Count".to_string(),
+        pack_unpack_spec: None,
     };
 
     let pkt_len_field = SyntaxUnit {
@@ -125,6 +131,7 @@ fn test_end_to_end_ccsds_space_packet() {
         alg: None,
         associate: vec![],
         desc: "Packet Data Length".to_string(),
+        pack_unpack_spec: None,
     };
 
     let data_field = SyntaxUnit {
@@ -140,6 +147,7 @@ fn test_end_to_end_ccsds_space_packet() {
         alg: None,
         associate: vec![],
         desc: "Packet Data".to_string(),
+        pack_unpack_spec: None,
     };
 
     // 添加所有字段
@@ -327,6 +335,7 @@ fn test_end_to_end_with_sync_marker() {
         alg: None,
         associate: vec![],
         desc: "Sync Marker".to_string(),
+        pack_unpack_spec: None,
     };
 
     let frame_id_field = SyntaxUnit {
@@ -342,6 +351,7 @@ fn test_end_to_end_with_sync_marker() {
         alg: None,
         associate: vec![],
         desc: "Frame ID".to_string(),
+        pack_unpack_spec: None,
     };
 
     let data_field = SyntaxUnit {
@@ -357,6 +367,7 @@ fn test_end_to_end_with_sync_marker() {
         alg: None,
         associate: vec![],
         desc: "Data".to_string(),
+        pack_unpack_spec: None,
     };
 
     tx_assembler.add_field(sync_field.clone());

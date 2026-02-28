@@ -96,6 +96,7 @@ impl PackageParser {
             package_type,
             layers,
             description,
+            pack_unpack_spec: None,
         })
     }
 
@@ -265,6 +266,7 @@ impl PackageParser {
             alg,
             associate,
             desc: desc_str,
+            pack_unpack_spec: None,
         })
     }
 

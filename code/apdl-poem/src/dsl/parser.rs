@@ -379,6 +379,7 @@ impl DslParserImpl {
             alg,
             associate,
             desc,
+            pack_unpack_spec: None,
         })
     }
 

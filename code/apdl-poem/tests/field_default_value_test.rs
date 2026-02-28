@@ -21,6 +21,7 @@ fn test_field_default_value_with_fixed_constraint() {
         alg: None,
         associate: vec![],
         desc: "Field with fixed value constraint".to_string(),
+        pack_unpack_spec: None,
     };
 
     // 2. 创建另一个没有约束的字段
@@ -37,6 +38,7 @@ fn test_field_default_value_with_fixed_constraint() {
         alg: None,
         associate: vec![],
         desc: "Normal field without constraint".to_string(),
+        pack_unpack_spec: None,
     };
 
     // 3. 创建FrameAssembler并添加字段
@@ -80,6 +82,7 @@ fn test_field_override_fixed_value() {
         alg: None,
         associate: vec![],
         desc: "Field with fixed value constraint".to_string(),
+        pack_unpack_spec: None,
     };
 
     let mut assembler = FrameAssembler::new();

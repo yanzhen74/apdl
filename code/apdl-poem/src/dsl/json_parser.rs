@@ -3,8 +3,9 @@
 //! 用于解析JSON格式的协议定义
 
 use apdl_core::{
-    ConnectorDefinition, Constraint, CoverDesc, LayerDefinition, LengthDesc, LengthUnit,
-    PackageDefinition, ProtocolStackDefinition, ScopeDesc, SemanticRule, SyntaxUnit, UnitType,
+    ConnectorDefinition, Constraint, CoverDesc, FieldPackSpec, LayerDefinition, LengthDesc,
+    LengthUnit, PackUnpackSpec, PackageDefinition, ProtocolStackDefinition, ScopeDesc,
+    SemanticRule, SyntaxUnit, UnitType,
 };
 use serde_json::Value;
 
@@ -139,6 +140,11 @@ impl JsonParser {
                 .and_then(|fixed_value| fixed_value.as_u64())
                 .map(Constraint::FixedValue);
 
+            // 解析字段级别的 pack_unpack_spec（如果存在）
+            let pack_unpack_spec = field.get("pack_unpack_spec").and_then(|spec| {
+                Self::parse_field_pack_spec(spec, field_name).ok()
+            });
+
             // 创建字段定义
             let syntax_unit = SyntaxUnit {
                 field_id: field_name.to_string(),
@@ -154,6 +160,7 @@ impl JsonParser {
                     .and_then(|d| d.as_str())
                     .unwrap_or("")
                     .to_string(),
+                pack_unpack_spec,
             };
 
             units.push(syntax_unit);
@@ -169,6 +176,11 @@ impl JsonParser {
             }
         }
 
+        // 解析包级别的 pack_unpack_spec（如果存在）
+        let pack_unpack_spec = json.get("pack_unpack_spec").and_then(|spec| {
+            Self::parse_pack_unpack_spec(spec).ok()
+        });
+
         // 创建包定义
         Ok(PackageDefinition {
             name: package_name.to_string(),
@@ -180,6 +192,284 @@ impl JsonParser {
                 units,
                 rules,
             }],
+            pack_unpack_spec,
+        })
+    }
+
+    /// 解析字段级打包规范
+    fn parse_field_pack_spec(spec: &Value, field_id: &str) -> Result<PackUnpackSpec, String> {
+        let byte_order = spec.get("byte_order")
+            .and_then(|v| v.as_str())
+            .map(|s| match s {
+                "big_endian" => apdl_core::ByteOrder::BigEndian,
+                "little_endian" => apdl_core::ByteOrder::LittleEndian,
+                _ => apdl_core::ByteOrder::BigEndian,
+            })
+            .unwrap_or_default();
+
+        let bit_order = spec.get("bit_order")
+            .and_then(|v| v.as_str())
+            .map(|s| match s {
+                "msb_first" => apdl_core::BitOrder::MsbFirst,
+                "lsb_first" => apdl_core::BitOrder::LsbFirst,
+                _ => apdl_core::BitOrder::MsbFirst,
+            })
+            .unwrap_or_default();
+
+        let alignment = spec.get("alignment")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u8)
+            .unwrap_or(1);
+
+        let padding_strategy = spec.get("padding_strategy")
+            .and_then(|v| v.as_str())
+            .map(|s| match s {
+                "zero" => apdl_core::PaddingStrategy::Zero,
+                "one" => apdl_core::PaddingStrategy::One,
+                "random" => apdl_core::PaddingStrategy::Random,
+                "none" => apdl_core::PaddingStrategy::None,
+                _ => apdl_core::PaddingStrategy::Zero,
+            })
+            .unwrap_or_default();
+
+        // 解析 field_level_specs
+        let mut field_level_specs = Vec::new();
+        if let Some(specs_array) = spec.get("field_level_specs").and_then(|v| v.as_array()) {
+            for spec_item in specs_array {
+                if let Some(field_spec) = Self::parse_field_level_spec(spec_item) {
+                    field_level_specs.push(field_spec);
+                }
+            }
+        }
+
+        // 如果当前是字段级别的 spec，添加当前字段的 spec
+        let bit_offset = spec.get("bit_offset").and_then(|v| v.as_u64()).map(|v| v as u8);
+        let packing_priority = spec.get("packing_priority").and_then(|v| v.as_u64()).map(|v| v as u32);
+
+        if bit_offset.is_some() || packing_priority.is_some() {
+            field_level_specs.push(FieldPackSpec {
+                field_id: field_id.to_string(),
+                byte_order: Some(byte_order),
+                bit_order: Some(bit_order),
+                bit_offset,
+                packing_priority,
+            });
+        }
+
+        Ok(PackUnpackSpec {
+            byte_order,
+            bit_order,
+            alignment,
+            padding_strategy,
+            field_level_specs,
+        })
+    }
+
+    /// 解析包级打包规范
+    fn parse_pack_unpack_spec(spec: &Value) -> Result<PackUnpackSpec, String> {
+        let byte_order = spec.get("byte_order")
+            .and_then(|v| v.as_str())
+            .map(|s| match s {
+                "big_endian" => apdl_core::ByteOrder::BigEndian,
+                "little_endian" => apdl_core::ByteOrder::LittleEndian,
+                _ => apdl_core::ByteOrder::BigEndian,
+            })
+            .unwrap_or_default();
+
+        let bit_order = spec.get("bit_order")
+            .and_then(|v| v.as_str())
+            .map(|s| match s {
+                "msb_first" => apdl_core::BitOrder::MsbFirst,
+                "lsb_first" => apdl_core::BitOrder::LsbFirst,
+                _ => apdl_core::BitOrder::MsbFirst,
+            })
+            .unwrap_or_default();
+
+        let alignment = spec.get("alignment")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u8)
+            .unwrap_or(1);
+
+        let padding_strategy = spec.get("padding_strategy")
+            .and_then(|v| v.as_str())
+            .map(|s| match s {
+                "zero" => apdl_core::PaddingStrategy::Zero,
+                "one" => apdl_core::PaddingStrategy::One,
+                "random" => apdl_core::PaddingStrategy::Random,
+                "none" => apdl_core::PaddingStrategy::None,
+                _ => apdl_core::PaddingStrategy::Zero,
+            })
+            .unwrap_or_default();
+
+        // 解析 field_level_specs
+        let mut field_level_specs = Vec::new();
+        if let Some(specs_array) = spec.get("field_level_specs").and_then(|v| v.as_array()) {
+            for spec_item in specs_array {
+                if let Some(field_spec) = Self::parse_field_level_spec(spec_item) {
+                    field_level_specs.push(field_spec);
+                }
+            }
+        }
+
+        Ok(PackUnpackSpec {
+            byte_order,
+            bit_order,
+            alignment,
+            padding_strategy,
+            field_level_specs,
+        })
+    }
+
+    /// 解析单个字段级打包规范
+    fn parse_field_level_spec(spec: &Value) -> Option<FieldPackSpec> {
+        let field_id = spec.get("field_id")?.as_str()?.to_string();
+
+        let byte_order = spec.get("byte_order")
+            .and_then(|v| v.as_str())
+            .map(|s| match s {
+                "big_endian" => apdl_core::ByteOrder::BigEndian,
+                "little_endian" => apdl_core::ByteOrder::LittleEndian,
+                _ => apdl_core::ByteOrder::BigEndian,
+            });
+
+        let bit_order = spec.get("bit_order")
+            .and_then(|v| v.as_str())
+            .map(|s| match s {
+                "msb_first" => apdl_core::BitOrder::MsbFirst,
+                "lsb_first" => apdl_core::BitOrder::LsbFirst,
+                _ => apdl_core::BitOrder::MsbFirst,
+            });
+
+        let bit_offset = spec.get("bit_offset").and_then(|v| v.as_u64()).map(|v| v as u8);
+        let packing_priority = spec.get("packing_priority").and_then(|v| v.as_u64()).map(|v| v as u32);
+
+        Some(FieldPackSpec {
+            field_id,
+            byte_order,
+            bit_order,
+            bit_offset,
+            packing_priority,
+        })
+    }
+
+    /// 解析符合 APDL Protocol Schema V1 的 JSON 格式
+    ///
+    /// 此方法用于解析标准的 APDL 协议定义文件（如 ccsds_tm_frame.json）
+    /// 它使用 syntax_units 而不是 fields，并支持完整的 pack_unpack_spec 配置
+    pub fn parse_apdl_protocol_json(
+        json_str: &str,
+    ) -> Result<PackageDefinition, String> {
+        let json: Value = serde_json::from_str(json_str)
+            .map_err(|e| format!("Failed to parse JSON: {e}"))?;
+
+        // 提取协议元数据
+        let protocol_meta = json.get("protocol_meta")
+            .ok_or_else(|| "Missing 'protocol_meta' object".to_string())?;
+
+        let protocol_id = protocol_meta["protocol_id"]
+            .as_str()
+            .ok_or_else(|| "Missing 'protocol_id'".to_string())?;
+        let protocol_name = protocol_meta["protocol_name"]
+            .as_str()
+            .unwrap_or(protocol_id);
+        let version = protocol_meta["version"]
+            .as_str()
+            .unwrap_or("1.0.0");
+
+        // 提取语法单元定义
+        let syntax_units = json["syntax_units"]
+            .as_array()
+            .ok_or_else(|| "Missing 'syntax_units' array in JSON".to_string())?;
+
+        let mut units = Vec::new();
+
+        for unit in syntax_units {
+            let field_id = unit["field_id"]
+                .as_str()
+                .ok_or_else(|| "Missing 'field_id' in syntax unit".to_string())?;
+            let field_type = unit["type"]
+                .as_str()
+                .ok_or_else(|| "Missing 'type' in syntax unit".to_string())?;
+            let length = unit["length"].as_u64().map(|v| v as usize).unwrap_or(1);
+            let scope_str = unit["scope"].as_str().unwrap_or("header");
+
+            // 解析字段类型
+            let unit_type = match field_type {
+                "Uint8" => UnitType::Uint(8),
+                "Uint16" => UnitType::Uint(16),
+                "Uint32" => UnitType::Uint(32),
+                "Uint64" => UnitType::Uint(64),
+                "Bit" => UnitType::Bit(length as u8),
+                "ByteArray" => UnitType::RawData,
+                "String" => UnitType::RawData,
+                _ => UnitType::RawData,
+            };
+
+            // 解析作用域
+            let scope = match scope_str {
+                "header" => ScopeDesc::Global("header".to_string()),
+                "data_area" => ScopeDesc::Global("data_area".to_string()),
+                "tail" => ScopeDesc::Global("tail".to_string()),
+                _ => ScopeDesc::Global("default".to_string()),
+            };
+
+            // 解析长度单位
+            let (size, length_unit) = if field_type == "Bit" {
+                (length, LengthUnit::Bit)
+            } else {
+                (length, LengthUnit::Byte)
+            };
+
+            // 解析约束（如果存在）
+            let constraint = unit.get("constraint").and_then(|c| {
+                if let Some(fixed) = c.get("values").and_then(|v| v.as_array()).and_then(|arr| arr.first()) {
+                    // 解析枚举值中的十六进制
+                    if let Some(hex_str) = fixed.as_str() {
+                        if let Ok(val) = u64::from_str_radix(&hex_str.trim_start_matches("0x"), 16) {
+                            return Some(Constraint::FixedValue(val));
+                        }
+                    }
+                }
+                None
+            });
+
+            // 解析字段级别的 pack_unpack_spec
+            let pack_unpack_spec = unit.get("pack_unpack_spec").and_then(|spec| {
+                Self::parse_field_pack_spec(spec, field_id).ok()
+            });
+
+            let syntax_unit = SyntaxUnit {
+                field_id: field_id.to_string(),
+                unit_type,
+                length: LengthDesc { size, unit: length_unit },
+                scope,
+                cover: CoverDesc::EntireField,
+                constraint,
+                alg: None,
+                associate: vec![],
+                desc: unit["description"].as_str().unwrap_or("").to_string(),
+                pack_unpack_spec,
+            };
+
+            units.push(syntax_unit);
+        }
+
+        // 解析包级别的 pack_unpack_spec（如果存在）
+        let pack_unpack_spec = json.get("pack_unpack_spec").and_then(|spec| {
+            Self::parse_pack_unpack_spec(spec).ok()
+        });
+
+        Ok(PackageDefinition {
+            name: protocol_id.to_string(),
+            display_name: protocol_name.to_string(),
+            package_type: "protocol".to_string(),
+            description: protocol_meta["description"].as_str().unwrap_or("").to_string(),
+            layers: vec![LayerDefinition {
+                name: "default_layer".to_string(),
+                units,
+                rules: vec![],
+            }],
+            pack_unpack_spec,
         })
     }
 

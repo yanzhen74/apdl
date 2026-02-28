@@ -253,6 +253,7 @@ mod tests {
             alg: None,
             associate: vec![],
             desc: "Version".to_string(),
+            pack_unpack_spec: None,
         };
 
         let data_field = SyntaxUnit {
@@ -268,6 +269,7 @@ mod tests {
             alg: None,
             associate: vec![],
             desc: "Data".to_string(),
+            pack_unpack_spec: None,
         };
 
         let mut disassembler = FrameDisassembler::new();
@@ -301,6 +303,7 @@ mod tests {
             alg: None,
             associate: vec![],
             desc: "Version".to_string(),
+            pack_unpack_spec: None,
         };
 
         let type_field = SyntaxUnit {
@@ -316,6 +319,7 @@ mod tests {
             alg: None,
             associate: vec![],
             desc: "Type".to_string(),
+            pack_unpack_spec: None,
         };
 
         let flag_field = SyntaxUnit {
@@ -331,6 +335,7 @@ mod tests {
             alg: None,
             associate: vec![],
             desc: "Flag".to_string(),
+            pack_unpack_spec: None,
         };
 
         let apid_field = SyntaxUnit {
@@ -346,6 +351,7 @@ mod tests {
             alg: None,
             associate: vec![],
             desc: "APID".to_string(),
+            pack_unpack_spec: None,
         };
 
         let mut disassembler = FrameDisassembler::new();

@@ -194,3 +194,69 @@ fn test_parse_ccsds_tm_frame_rules() {
 
     println!("\n✓ CCSDS TM Frame 规则解析成功！\n");
 }
+
+#[test]
+fn test_parse_apdl_protocol_json_with_pack_unpack_spec() {
+    use apdl_poem::dsl::json_parser::JsonParser;
+    use std::fs;
+
+    println!("\n=== 测试 APDL Protocol JSON (带 pack_unpack_spec) 解析 ===\n");
+
+    // 读取示例 ccsds_tm_frame.json 文件
+    let json = fs::read_to_string("d:/user/yqd/project/apdl/code/apdl-editor/schema/examples/ccsds_tm_frame.json")
+        .expect("Failed to read ccsds_tm_frame.json");
+
+    // 使用新的 parse_apdl_protocol_json 方法解析
+    let result = JsonParser::parse_apdl_protocol_json(&json);
+    assert!(
+        result.is_ok(),
+        "解析 APDL Protocol JSON 失败: {:?}",
+        result.err()
+    );
+
+    let package = result.unwrap();
+
+    println!("✓ 成功解析 APDL Protocol JSON");
+    println!("  - 包名: {}", package.name);
+    println!("  - 显示名: {}", package.display_name);
+    println!("  - 字段数: {}", package.layers[0].units.len());
+
+    // 验证包级别的 pack_unpack_spec
+    assert!(
+        package.pack_unpack_spec.is_some(),
+        "应该解析出包级别的 pack_unpack_spec"
+    );
+
+    let spec = package.pack_unpack_spec.unwrap();
+    println!("\n包级别 PackUnpackSpec:");
+    println!("  - byte_order: {:?}", spec.byte_order);
+    println!("  - bit_order: {:?}", spec.bit_order);
+    println!("  - alignment: {}", spec.alignment);
+    println!("  - padding_strategy: {:?}", spec.padding_strategy);
+    println!("  - field_level_specs 数量: {}", spec.field_level_specs.len());
+
+    // 验证字节序和位序
+    assert_eq!(spec.byte_order, apdl_core::ByteOrder::BigEndian, "byte_order 应该是 big_endian");
+    assert_eq!(spec.bit_order, apdl_core::BitOrder::MsbFirst, "bit_order 应该是 msb_first");
+    assert_eq!(spec.alignment, 1, "alignment 应该是 1");
+
+    // 验证 field_level_specs
+    assert_eq!(spec.field_level_specs.len(), 4, "应该有 4 个 field_level_specs");
+
+    // 查找特定字段的 spec
+    let tm_sync_flag_spec = spec.field_level_specs.iter()
+        .find(|s| s.field_id == "tm_sync_flag");
+    assert!(tm_sync_flag_spec.is_some(), "应该有 tm_sync_flag 的 field_level_spec");
+
+    let tfvn_spec = spec.field_level_specs.iter()
+        .find(|s| s.field_id == "tfvn");
+    assert!(tfvn_spec.is_some(), "应该有 tfvn 的 field_level_spec");
+    assert_eq!(tfvn_spec.unwrap().bit_offset, Some(0), "tfvn 的 bit_offset 应该是 0");
+
+    let scid_spec = spec.field_level_specs.iter()
+        .find(|s| s.field_id == "scid");
+    assert!(scid_spec.is_some(), "应该有 scid 的 field_level_spec");
+    assert_eq!(scid_spec.unwrap().bit_offset, Some(2), "scid 的 bit_offset 应该是 2");
+
+    println!("\n✓ APDL Protocol JSON (带 pack_unpack_spec) 解析成功！\n");
+}

@@ -119,6 +119,96 @@ pub enum CoverDesc {
     EntireField,                 // entire_field
 }
 
+/// 字节序类型
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum ByteOrder {
+    #[serde(rename = "big_endian")]
+    BigEndian,
+    #[serde(rename = "little_endian")]
+    LittleEndian,
+}
+
+impl Default for ByteOrder {
+    fn default() -> Self {
+        ByteOrder::BigEndian
+    }
+}
+
+/// 位序类型
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum BitOrder {
+    #[serde(rename = "msb_first")]
+    MsbFirst,
+    #[serde(rename = "lsb_first")]
+    LsbFirst,
+}
+
+impl Default for BitOrder {
+    fn default() -> Self {
+        BitOrder::MsbFirst
+    }
+}
+
+/// 填充策略
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum PaddingStrategy {
+    #[serde(rename = "zero")]
+    Zero,
+    #[serde(rename = "one")]
+    One,
+    #[serde(rename = "random")]
+    Random,
+    #[serde(rename = "none")]
+    None,
+}
+
+impl Default for PaddingStrategy {
+    fn default() -> Self {
+        PaddingStrategy::Zero
+    }
+}
+
+/// 字段级打包规范
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FieldPackSpec {
+    pub field_id: String,
+    pub byte_order: Option<ByteOrder>,
+    pub bit_order: Option<BitOrder>,
+    pub bit_offset: Option<u8>,
+    pub packing_priority: Option<u32>,
+}
+
+/// 打包/拆包规范
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PackUnpackSpec {
+    #[serde(default)]
+    pub byte_order: ByteOrder,
+    #[serde(default)]
+    pub bit_order: BitOrder,
+    #[serde(default = "default_alignment")]
+    pub alignment: u8,
+    #[serde(default)]
+    pub padding_strategy: PaddingStrategy,
+    #[serde(default)]
+    pub field_level_specs: Vec<FieldPackSpec>,
+}
+
+fn default_alignment() -> u8 {
+    1
+}
+
+impl Default for PackUnpackSpec {
+    fn default() -> Self {
+        PackUnpackSpec {
+            byte_order: ByteOrder::BigEndian,
+            bit_order: BitOrder::MsbFirst,
+            alignment: 1,
+            padding_strategy: PaddingStrategy::Zero,
+            field_level_specs: Vec::new(),
+        }
+    }
+}
+
 /// 算法抽象语法树
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AlgorithmAst {
@@ -237,6 +327,8 @@ pub struct SyntaxUnit {
     pub alg: Option<AlgorithmAst>,
     pub associate: Vec<String>,
     pub desc: String,
+    /// 字段级别的打包/拆包规范，覆盖包级别的默认配置
+    pub pack_unpack_spec: Option<PackUnpackSpec>,
 }
 
 // 新增语义规则类型
@@ -390,6 +482,8 @@ pub struct PackageDefinition {
     pub package_type: String, // telemetry, command, encapsulating, etc.
     pub layers: Vec<LayerDefinition>,
     pub description: String,
+    /// 包级别的打包/拆包规范
+    pub pack_unpack_spec: Option<PackUnpackSpec>,
 }
 
 /// 数据放置策略类型
@@ -474,6 +568,7 @@ impl PackageDefinition {
             package_type,
             layers: Vec::new(),
             description,
+            pack_unpack_spec: None,
         }
     }
 }
