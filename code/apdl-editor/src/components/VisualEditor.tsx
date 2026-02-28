@@ -79,24 +79,220 @@ export function VisualEditor({ protocol, onProtocolChange }: VisualEditorProps) 
 
 // 关系图组件
 function RelationGraph({ protocol }: { protocol: any }) {
+  const relationships = protocol.frame_packet_relationships || [];
+  const syntaxUnits = protocol.syntax_units || [];
+
+  // 获取单元信息
+  const getUnitInfo = (unitId: string) => {
+    return syntaxUnits.find((u: any) => u.unit_id === unitId);
+  };
+
+  // 渲染帧/包字段表格（2行N列）
+  const renderUnitTable = (unit: any) => {
+    if (!unit || !unit.fields || unit.fields.length === 0) {
+      return <div style={{ color: '#999', padding: '10px' }}>无字段定义</div>;
+    }
+
+    return (
+      <div style={{ 
+        display: 'inline-block',
+        margin: '10px',
+        border: '2px solid #1890ff',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        backgroundColor: 'white'
+      }}>
+        {/* 单元标题 */}
+        <div style={{ 
+          padding: '8px 12px',
+          backgroundColor: '#1890ff',
+          color: 'white',
+          fontWeight: 'bold',
+          fontSize: '13px'
+        }}>
+          {unit.unit_name} ({unit.unit_id})
+          <span style={{ 
+            marginLeft: '8px',
+            fontSize: '11px',
+            fontWeight: 'normal',
+            opacity: 0.9
+          }}>
+            {unit.unit_type === 'frame' ? '帧' : '包'}
+          </span>
+        </div>
+        
+        {/* 字段表格 - 2行N列 */}
+        <table style={{ 
+          borderCollapse: 'collapse',
+          fontSize: '11px'
+        }}>
+          <tbody>
+            {/* 第一行：字段名称 */}
+            <tr>
+              {unit.fields.map((field: any, idx: number) => (
+                <td key={idx} style={{
+                  padding: '6px 10px',
+                  border: '1px solid #e8e8e8',
+                  borderTop: 'none',
+                  textAlign: 'center',
+                  fontWeight: 'bold',
+                  backgroundColor: '#fafafa',
+                  minWidth: '60px'
+                }}>
+                  {field.field_name}
+                </td>
+              ))}
+            </tr>
+            {/* 第二行：字段长度 */}
+            <tr>
+              {unit.fields.map((field: any, idx: number) => (
+                <td key={idx} style={{
+                  padding: '6px 10px',
+                  border: '1px solid #e8e8e8',
+                  borderTop: 'none',
+                  textAlign: 'center',
+                  color: '#666',
+                  fontSize: '10px'
+                }}>
+                  {field.bit_length ? `${field.bit_length}bit` : ''}
+                  {field.byte_length ? `${field.byte_length}B` : ''}
+                  {!field.bit_length && !field.byte_length ? '-' : ''}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // 渲染关系连接（简化版，只显示关系）
+  const renderRelation = (rel: any, index: number) => {
+    const parentUnit = getUnitInfo(rel.parent_frame);
+    const childUnit = getUnitInfo(rel.child_packet);
+
+    return (
+      <div key={index} style={{ 
+        marginBottom: '20px',
+        padding: '15px 20px',
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        border: '1px solid #e8e8e8',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '15px'
+      }}>
+        {/* 父帧名称 */}
+        <span style={{ 
+          padding: '8px 16px', 
+          backgroundColor: '#1890ff',
+          color: 'white',
+          borderRadius: '4px',
+          fontWeight: 'bold',
+          fontSize: '14px'
+        }}>
+          {parentUnit?.unit_name || rel.parent_frame}
+        </span>
+        
+        {/* 关系箭头和类型 */}
+        <div style={{ 
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          color: '#1890ff'
+        }}>
+          <div style={{ fontSize: '20px' }}>→</div>
+          <span style={{ 
+            padding: '2px 8px',
+            backgroundColor: '#f0f0f0',
+            borderRadius: '4px',
+            fontSize: '11px',
+            color: '#666',
+            marginTop: '2px'
+          }}>
+            {rel.relationship_type}
+          </span>
+          {rel.embedding_config?.container_field && (
+            <span style={{ 
+              fontSize: '10px',
+              color: '#999',
+              marginTop: '2px'
+            }}>
+              容器: {rel.embedding_config.container_field}
+            </span>
+          )}
+        </div>
+        
+        {/* 子包名称 */}
+        <span style={{ 
+          padding: '8px 16px', 
+          backgroundColor: '#52c41a',
+          color: 'white',
+          borderRadius: '4px',
+          fontWeight: 'bold',
+          fontSize: '14px'
+        }}>
+          {childUnit?.unit_name || rel.child_packet}
+        </span>
+      </div>
+    );
+  };
+
   return (
     <div>
       <h3>协议关系总图</h3>
+      
+      {/* 协议概览 */}
+      <div style={{ 
+        padding: '15px', 
+        backgroundColor: '#e3f2fd',
+        borderRadius: '8px',
+        marginBottom: '20px'
+      }}>
+        <strong>协议: {protocol.protocol_meta?.protocol_name || '未命名'}</strong>
+        <span style={{ marginLeft: '20px', color: '#666' }}>
+          帧: {syntaxUnits.filter((u: any) => u.unit_type === 'frame').length} | 
+          包: {syntaxUnits.filter((u: any) => u.unit_type === 'packet').length} | 
+          关系: {relationships.length}
+        </span>
+      </div>
+
+      {/* 所有帧/包概览 */}
       <div style={{ 
         padding: '20px', 
         backgroundColor: '#f8f9fa',
         borderRadius: '8px',
-        minHeight: '300px'
+        marginBottom: '20px'
       }}>
-        <p>协议名称: {protocol.protocol_name}</p>
-        <p>语法单元数: {protocol.syntax_units?.length || 0}</p>
-        <p>帧包关系数: {protocol.frame_packet_relationships?.length || 0}</p>
-        <p>字段映射数: {protocol.field_mappings?.length || 0}</p>
-        
-        {/* TODO: 实现图形化关系图 */}
-        <div style={{ marginTop: '20px', color: '#999' }}>
-          [关系图可视化区域 - 开发中]
+        <h4 style={{ marginTop: 0, marginBottom: '15px' }}>帧/包概览</h4>
+        <div style={{ 
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'center'
+        }}>
+          {syntaxUnits.map((unit: any, idx: number) => (
+            <div key={idx}>
+              {renderUnitTable(unit)}
+            </div>
+          ))}
         </div>
+      </div>
+
+      {/* 关系详情 */}
+      <div style={{ 
+        padding: '20px', 
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px'
+      }}>
+        <h4 style={{ marginTop: 0, marginBottom: '15px' }}>帧包关系</h4>
+        {relationships.length === 0 ? (
+          <p style={{ color: '#999', textAlign: 'center', padding: '30px' }}>
+            暂无帧包关系定义
+          </p>
+        ) : (
+          relationships.map((rel: any, index: number) => renderRelation(rel, index))
+        )}
       </div>
     </div>
   );
