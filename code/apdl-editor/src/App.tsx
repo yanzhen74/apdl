@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import Editor from "@monaco-editor/react";
 import { ProtocolTree } from "./components/ProtocolTree";
+import { VisualEditor } from "./components/VisualEditor";
 import "./App.css";
 
 interface ValidationError {
@@ -15,12 +16,15 @@ interface ValidationResult {
   errors: ValidationError[];
 }
 
+type ViewMode = "json" | "visual";
+
 function App() {
   const [editorValue, setEditorValue] = useState<string>("");
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [message, setMessage] = useState<string>("");
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
   const [selectedField, setSelectedField] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("json");
 
   // 解析协议数据供树形组件使用
   const protocolData = useMemo(() => {
@@ -119,11 +123,40 @@ function App() {
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", padding: "10px" }}>
       <h1 style={{ margin: "0 0 10px 0" }}>APDL 协议编辑器</h1>
       
-      <div style={{ marginBottom: "10px" }}>
-        <button onClick={handleLoad} style={{ marginRight: "5px" }}>打开</button>
-        <button onClick={handleSave} style={{ marginRight: "5px" }}>保存</button>
-        <button onClick={handleValidate} style={{ marginRight: "5px" }}>验证</button>
-        <button onClick={handleLoadExample}>加载示例</button>
+      <div style={{ marginBottom: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <button onClick={handleLoad} style={{ marginRight: "5px" }}>打开</button>
+          <button onClick={handleSave} style={{ marginRight: "5px" }}>保存</button>
+          <button onClick={handleValidate} style={{ marginRight: "5px" }}>验证</button>
+          <button onClick={handleLoadExample}>加载示例</button>
+        </div>
+        <div>
+          <button 
+            onClick={() => setViewMode("json")}
+            style={{ 
+              marginRight: "5px",
+              backgroundColor: viewMode === "json" ? "#1890ff" : "#fff",
+              color: viewMode === "json" ? "#fff" : "#333",
+              border: "1px solid #d9d9d9",
+              padding: "5px 15px",
+              cursor: "pointer"
+            }}
+          >
+            JSON源码
+          </button>
+          <button 
+            onClick={() => setViewMode("visual")}
+            style={{ 
+              backgroundColor: viewMode === "visual" ? "#1890ff" : "#fff",
+              color: viewMode === "visual" ? "#fff" : "#333",
+              border: "1px solid #d9d9d9",
+              padding: "5px 15px",
+              cursor: "pointer"
+            }}
+          >
+            可视化编辑
+          </button>
+        </div>
       </div>
 
       {message && (
@@ -173,25 +206,34 @@ function App() {
 
         {/* 右侧区域：编辑器 + 详情面板 */}
         <div style={{ flex: 1, marginLeft: "10px", display: "flex", flexDirection: "column" }}>
-          {/* 编辑器 */}
-          <div style={{ flex: 1, border: "1px solid #ccc", borderRadius: "4px", marginBottom: "10px" }}>
-            <Editor
-              height="100%"
-              defaultLanguage="json"
-              value={editorValue}
-              onChange={(value) => setEditorValue(value || "")}
-              theme="vs-dark"
-              options={{
-                minimap: { enabled: true },
-                fontSize: 14,
-                formatOnPaste: true,
-                formatOnType: true,
-              }}
-            />
+          {/* 编辑器区域 - 根据viewMode切换 */}
+          <div style={{ flex: 1, border: "1px solid #ccc", borderRadius: "4px", marginBottom: "10px", overflow: "hidden" }}>
+            {viewMode === "json" ? (
+              <Editor
+                height="100%"
+                defaultLanguage="json"
+                value={editorValue}
+                onChange={(value) => setEditorValue(value || "")}
+                theme="vs-dark"
+                options={{
+                  minimap: { enabled: true },
+                  fontSize: 14,
+                  formatOnPaste: true,
+                  formatOnType: true,
+                }}
+              />
+            ) : (
+              <VisualEditor
+                protocol={protocolData}
+                onProtocolChange={(newProtocol: any) => {
+                  setEditorValue(JSON.stringify(newProtocol, null, 2));
+                }}
+              />
+            )}
           </div>
 
-          {/* 详情面板 */}
-          {(selectedUnit || selectedField) && (
+          {/* 详情面板 - 仅在JSON视图显示 */}
+          {viewMode === "json" && (selectedUnit || selectedField) && (
             <div style={{ 
               height: "200px", 
               border: "1px solid #ccc", 
