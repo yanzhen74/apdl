@@ -18,7 +18,18 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": [
+        {
+          "identifier": "default",
+          "windows": ["main"],
+          "permissions": [
+            "dialog:allow-open",
+            "dialog:allow-save",
+            "core:default"
+          ]
+        }
+      ]
     }
   },
   "bundle": {

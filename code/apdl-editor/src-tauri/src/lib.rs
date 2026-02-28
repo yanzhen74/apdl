@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use jsonschema::{Draft, JSONSchema};
+use tauri_plugin_dialog::DialogExt;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ValidationError {
@@ -93,15 +94,43 @@ fn get_schema() -> Result<serde_json::Value, String> {
         })
 }
 
+// 打开文件对话框
+#[tauri::command]
+async fn open_file_dialog(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let dialog = app.dialog();
+    let file_path = dialog
+        .file()
+        .add_filter("JSON", &["json"])
+        .add_filter("All Files", &["*"])
+        .blocking_pick_file();
+    
+    Ok(file_path.map(|p| p.to_string()))
+}
+
+// 保存文件对话框
+#[tauri::command]
+async fn save_file_dialog(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let dialog = app.dialog();
+    let file_path = dialog
+        .file()
+        .add_filter("JSON", &["json"])
+        .blocking_save_file();
+    
+    Ok(file_path.map(|p| p.to_string()))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             load_protocol,
             save_protocol,
             validate_protocol,
-            get_schema
+            get_schema,
+            open_file_dialog,
+            save_file_dialog
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

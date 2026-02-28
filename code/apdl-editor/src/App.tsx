@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import Editor from "@monaco-editor/react";
+import { ProtocolTree } from "./components/ProtocolTree";
 import "./App.css";
 
 interface ValidationError {
@@ -17,12 +19,30 @@ function App() {
   const [editorValue, setEditorValue] = useState<string>("");
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [message, setMessage] = useState<string>("");
+  const [selectedUnit, setSelectedUnit] = useState<any>(null);
+  const [selectedField, setSelectedField] = useState<any>(null);
+
+  // 解析协议数据供树形组件使用
+  const protocolData = useMemo(() => {
+    try {
+      return editorValue ? JSON.parse(editorValue) : null;
+    } catch {
+      return null;
+    }
+  }, [editorValue]);
 
   // 加载协议定义
   async function handleLoad() {
     try {
-      // TODO: 实现文件选择对话框
-      const filePath = prompt("请输入协议定义文件路径:");
+      const filePath = await open({
+        multiple: false,
+        directory: false,
+        filters: [
+          { name: "JSON", extensions: ["json"] },
+          { name: "All Files", extensions: ["*"] }
+        ]
+      });
+      
       if (!filePath) return;
 
       const content = await invoke<any>("load_protocol", { filePath });
@@ -36,7 +56,13 @@ function App() {
   // 保存协议定义
   async function handleSave() {
     try {
-      const filePath = prompt("请输入保存路径:");
+      const filePath = await save({
+        filters: [
+          { name: "JSON", extensions: ["json"] },
+          { name: "All Files", extensions: ["*"] }
+        ]
+      });
+      
       if (!filePath) return;
 
       const content = JSON.parse(editorValue);
@@ -129,20 +155,107 @@ function App() {
         </div>
       )}
 
-      <div style={{ flex: 1, border: "1px solid #ccc", borderRadius: "4px" }}>
-        <Editor
-          height="100%"
-          defaultLanguage="json"
-          value={editorValue}
-          onChange={(value) => setEditorValue(value || "")}
-          theme="vs-dark"
-          options={{
-            minimap: { enabled: true },
-            fontSize: 14,
-            formatOnPaste: true,
-            formatOnType: true,
-          }}
-        />
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        {/* 左侧树形面板 */}
+        <div style={{ width: "300px", minWidth: "250px", height: "100%" }}>
+          <ProtocolTree
+            protocol={protocolData}
+            onSelectUnit={(unit) => {
+              setSelectedUnit(unit);
+              setSelectedField(null);
+            }}
+            onSelectField={(unit, field) => {
+              setSelectedUnit(unit);
+              setSelectedField(field);
+            }}
+          />
+        </div>
+
+        {/* 右侧区域：编辑器 + 详情面板 */}
+        <div style={{ flex: 1, marginLeft: "10px", display: "flex", flexDirection: "column" }}>
+          {/* 编辑器 */}
+          <div style={{ flex: 1, border: "1px solid #ccc", borderRadius: "4px", marginBottom: "10px" }}>
+            <Editor
+              height="100%"
+              defaultLanguage="json"
+              value={editorValue}
+              onChange={(value) => setEditorValue(value || "")}
+              theme="vs-dark"
+              options={{
+                minimap: { enabled: true },
+                fontSize: 14,
+                formatOnPaste: true,
+                formatOnType: true,
+              }}
+            />
+          </div>
+
+          {/* 详情面板 */}
+          {(selectedUnit || selectedField) && (
+            <div style={{ 
+              height: "200px", 
+              border: "1px solid #ccc", 
+              borderRadius: "4px",
+              padding: "15px",
+              backgroundColor: "#f8f9fa",
+              overflow: "auto"
+            }}>
+              <h3 style={{ margin: "0 0 10px 0", fontSize: "14px", color: "#333" }}>
+                {selectedField ? `字段: ${selectedField.field_name}` : `单元: ${selectedUnit?.unit_name}`}
+              </h3>
+              
+              {selectedField ? (
+                <div style={{ fontSize: "13px" }}>
+                  <div style={{ marginBottom: "8px" }}>
+                    <strong>类型:</strong> {selectedField.field_type}
+                  </div>
+                  {selectedField.bit_length && (
+                    <div style={{ marginBottom: "8px" }}>
+                      <strong>位长度:</strong> {selectedField.bit_length}
+                    </div>
+                  )}
+                  {selectedField.byte_length && (
+                    <div style={{ marginBottom: "8px" }}>
+                      <strong>字节长度:</strong> {selectedField.byte_length}
+                    </div>
+                  )}
+                  {selectedField.description && (
+                    <div style={{ marginBottom: "8px" }}>
+                      <strong>描述:</strong> {selectedField.description}
+                    </div>
+                  )}
+                  {selectedField.default_value && (
+                    <div style={{ marginBottom: "8px" }}>
+                      <strong>默认值:</strong> {selectedField.default_value}
+                    </div>
+                  )}
+                  <div style={{ marginTop: "10px", padding: "8px", backgroundColor: "#e3f2fd", borderRadius: "4px" }}>
+                    <strong>所属单元:</strong> {selectedUnit?.unit_name}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: "13px" }}>
+                  <div style={{ marginBottom: "8px" }}>
+                    <strong>ID:</strong> {selectedUnit?.unit_id}
+                  </div>
+                  <div style={{ marginBottom: "8px" }}>
+                    <strong>类型:</strong> {selectedUnit?.unit_type}
+                  </div>
+                  {selectedUnit?.description && (
+                    <div style={{ marginBottom: "8px" }}>
+                      <strong>描述:</strong> {selectedUnit?.description}
+                    </div>
+                  )}
+                  {selectedUnit?.fields && (
+                    <div style={{ marginBottom: "8px" }}>
+                      <strong>字段数:</strong> {selectedUnit.fields.length}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
