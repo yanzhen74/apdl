@@ -8,6 +8,8 @@ members = [
     "apdl-pvpae",
     "apdl-iam",
     "apdl-app",
+]
+exclude = [
     "apdl-editor",
 ]
 resolver = "2"

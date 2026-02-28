@@ -1,0 +1,27 @@
+[package]
+name = "apdl-editor"
+version = "0.1.0"
+description = "APDL Protocol Editor"
+authors = ["APDL Team"]
+edition = "2021"
+
+[workspace]
+# 独立的workspace，不继承父目录workspace
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "apdl_editor_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+apdl-core = { path = "../../apdl-core" }
+jsonschema = "0.17"
+
